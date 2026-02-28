@@ -10,6 +10,7 @@ import { SocketContext } from '../context/SocketContext';
 import {
   ArrowLeft, ThumbsUp, Trash2, RefreshCw,
   Users, AlertTriangle, CheckCircle2, Clock, MapPin,
+  ChevronLeft, ChevronRight, ImageOff,
 } from 'lucide-react';
 
 const STATUSES = ['pending', 'in-progress', 'resolved'];
@@ -35,6 +36,7 @@ export default function IssueDetail() {
   const [updating, setUpdating] = useState(false);
   const [toast, setToast] = useState({ msg: '', ok: true });
   const [cluster, setCluster] = useState(null);
+  const [clusterSlideIdx, setClusterSlideIdx] = useState(0);
   const { socket } = useContext(SocketContext);
   const confettiFired = useRef(false);
 
@@ -176,38 +178,142 @@ export default function IssueDetail() {
         )}
 
         {/* Cluster alert — government */}
-        {user?.role === 'government' && cluster?.isInCluster && cluster.totalReports > 1 && (
-          <div className="mb-5 bg-amber-50 border border-amber-200 border-l-4 border-l-amber-400 rounded-sm p-4 fade-in">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={13} className="text-amber-600" />
-              <span className="mono text-[11px] text-amber-700 tracking-widest font-semibold">
-                CLUSTER ALERT · {cluster.totalReports} REPORTS WITHIN 100m
-              </span>
-            </div>
-            <p className="mono text-[10px] text-amber-600 mb-4">
-              RESOLVING THIS ISSUE WILL CASCADE TO ALL {cluster.totalReports} LINKED REPORTS
-            </p>
-            <div className="space-y-2">
-              {cluster.reporters?.map((r, i) => (
-                <div key={r.issueId} className="flex items-center justify-between bg-white border border-amber-100 rounded-sm px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="mono text-[10px] text-gray-400 w-5">#{String(i + 1).padStart(2, '0')}</span>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800">{r.name}</p>
-                      <p className="mono text-[10px] text-gray-400">{r.email}</p>
+        {user?.role === 'government' && cluster?.isInCluster && cluster.totalReports > 1 && (() => {
+          const reporters = cluster.reporters || [];
+          const total = reporters.length;
+          const current = reporters[clusterSlideIdx] || reporters[0];
+          return (
+            <div className="mb-5 bg-amber-50 border border-amber-200 border-l-4 border-l-amber-400 rounded-sm p-4 fade-in">
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={13} className="text-amber-600" />
+                <span className="mono text-[11px] text-amber-700 tracking-widest font-semibold">
+                  CLUSTER ALERT · {cluster.totalReports} REPORTS WITHIN 100m
+                </span>
+              </div>
+              <p className="mono text-[10px] text-amber-600 mb-4">
+                RESOLVING THIS ISSUE WILL CASCADE TO ALL {cluster.totalReports} LINKED REPORTS
+              </p>
+
+              {/* ── Citizen Media Slider ── */}
+              <div className="mb-4">
+                <p className="mono text-[9px] text-amber-700 tracking-widest mb-2 uppercase">Citizen Reports · Media &amp; Descriptions</p>
+                <div className="bg-white border border-amber-100 rounded-sm overflow-hidden">
+                  {/* Image area */}
+                  <div className="relative bg-gray-100" style={{ minHeight: 200 }}>
+                    {current?.imageUrl ? (
+                      <img
+                        src={`http://localhost:5000${current.imageUrl}`}
+                        alt={`Report ${clusterSlideIdx + 1}`}
+                        className="w-full object-cover"
+                        style={{ maxHeight: 280 }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <ImageOff size={28} className="mb-2 opacity-40" />
+                        <span className="mono text-[10px] text-gray-400 tracking-widest">NO IMAGE UPLOADED</span>
+                      </div>
+                    )}
+                    {/* Slide counter badge */}
+                    <span className="absolute top-2 right-2 bg-black/60 text-white mono text-[10px] px-2 py-0.5 rounded-sm">
+                      {clusterSlideIdx + 1} / {total}
+                    </span>
+                  </div>
+
+                  {/* Description + reporter info */}
+                  <div className="px-4 py-3 border-t border-amber-100">
+                    {/* Reporter name + status row */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800">{current?.name || '—'}</p>
+                        <p className="mono text-[10px] text-gray-400">{current?.email || '—'}</p>
+                      </div>
+                      <StatusBadge status={current?.status} />
+                    </div>
+
+                    {/* Reported at — date + time */}
+                    {current?.reportedAt && (
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <Clock size={10} className="text-gray-400 flex-shrink-0" />
+                        <span className="mono text-[10px] text-gray-500">
+                          {new Date(current.reportedAt).toLocaleString('en-IN', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: true,
+                          })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    <div className="border-t border-gray-100 pt-2">
+                      <p className="mono text-[9px] text-gray-400 tracking-widest mb-1 uppercase">Description</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        {current?.description || <span className="italic text-gray-300">No description provided</span>}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <StatusBadge status={r.status} />
-                    <p className="mono text-[10px] text-gray-400 mt-1">
-                      {new Date(r.reportedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </p>
-                  </div>
+
+                  {/* Prev / Next nav */}
+                  {total > 1 && (
+                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-amber-100 bg-amber-50/60">
+                      <button
+                        onClick={() => setClusterSlideIdx(i => (i - 1 + total) % total)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-sm border border-amber-200 bg-white hover:bg-amber-50 mono text-[10px] text-amber-700 transition-colors"
+                      >
+                        <ChevronLeft size={12} /> PREV
+                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {reporters.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setClusterSlideIdx(i)}
+                            className={`w-2 h-2 rounded-full transition-colors ${
+                              i === clusterSlideIdx ? 'bg-amber-500' : 'bg-amber-200 hover:bg-amber-400'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setClusterSlideIdx(i => (i + 1) % total)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-sm border border-amber-200 bg-white hover:bg-amber-50 mono text-[10px] text-amber-700 transition-colors"
+                      >
+                        NEXT <ChevronRight size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+
+              {/* Reporter list summary */}
+              <div className="space-y-2">
+                {reporters.map((r, i) => (
+                  <div
+                    key={r.issueId}
+                    onClick={() => setClusterSlideIdx(i)}
+                    className={`flex items-center justify-between border rounded-sm px-3 py-2 cursor-pointer transition-colors ${
+                      i === clusterSlideIdx
+                        ? 'bg-amber-100 border-amber-300'
+                        : 'bg-white border-amber-100 hover:bg-amber-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="mono text-[10px] text-gray-400 w-5">#{String(i + 1).padStart(2, '0')}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800">{r.name}</p>
+                        <p className="mono text-[10px] text-gray-400">{r.email}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <StatusBadge status={r.status} />
+                      <p className="mono text-[10px] text-gray-400 mt-1">
+                        {new Date(r.reportedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* ── Main panel ── */}

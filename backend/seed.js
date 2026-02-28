@@ -30,6 +30,14 @@ const fakeIssues = [
   { title: 'Pothole near Whitefield ITPL gate', description: 'Large pothole at ITPL main gate causing daily traffic jam.', category: 'Pothole', lat: 12.9846, lng: 77.7271, address: 'ITPL Main Gate, Whitefield', status: 'pending' },
   { title: 'Broken street light — HSR Layout sector 5', description: 'Street light broken at a blind corner increasing road risk.', category: 'Streetlight', lat: 12.9108, lng: 77.6462, address: 'HSR Layout Sector 5, Bengaluru', status: 'in-progress' },
   { title: 'Water logging on Outer Ring Road', description: 'Persistent waterlogging after rains due to clogged storm drains near Marathahalli.', category: 'Drainage', lat: 12.9591, lng: 77.6974, address: 'Outer Ring Road, Marathahalli, Bengaluru', status: 'pending' },
+
+  // ── Cluster test group A: Pothole cluster at Silk Board (3 reports within ~50m) ──
+  { title: 'Dangerous pothole — Silk Board flyover approach', description: 'Massive pothole on the flyover approach road. Bikes swerving dangerously every morning.', category: 'Pothole', lat: 12.9179, lng: 77.6235, address: 'Silk Board Flyover, Bengaluru', status: 'pending' },
+  { title: 'Giant pothole blocking left lane at Silk Board', description: 'Left lane completely blocked by a crater-sized pothole. BBMP has been notified twice but no action.', category: 'Pothole', lat: 12.9180, lng: 77.6236, address: 'Silk Board Junction, Bengaluru', status: 'pending' },
+
+  // ── Cluster test group B: Garbage cluster at Indiranagar metro (2 reports within ~30m) ──
+  { title: 'Overflowing garbage bin near Indiranagar metro entrance', description: 'The garbage bin near Gate 2 has been overflowing for 5 days. Rodents spotted near the pile.', category: 'Garbage', lat: 12.9785, lng: 77.6409, address: 'Indiranagar Metro Gate 2, Bengaluru', status: 'pending' },
+  { title: 'Garbage dumped illegally beside metro pillar', description: 'Construction waste and household garbage dumped beside metro pillar 47. Blocking pedestrian footpath.', category: 'Garbage', lat: 12.9786, lng: 77.6410, address: 'Indiranagar Metro, Bengaluru', status: 'pending' },
 ];
 
 const DEPT_MAP = {
@@ -45,7 +53,7 @@ async function seed() {
   await mongoose.connect(MONGO_URI);
   console.log('✅ DB connected');
 
-  // Find or create a demo citizen user
+  // Find or create demo citizen users (we use 2 so cluster reporters look realistic)
   let citizen = await User.findOne({ email: 'demo@citizen.com' });
   if (!citizen) {
     citizen = await User.create({
@@ -59,10 +67,25 @@ async function seed() {
     console.log('👤 Using existing demo citizen');
   }
 
-  const statuses = ['pending', 'in-progress', 'resolved'];
+  let citizen2 = await User.findOne({ email: 'demo2@citizen.com' });
+  if (!citizen2) {
+    citizen2 = await User.create({
+      name: 'Ravi Kumar',
+      email: 'demo2@citizen.com',
+      password: 'demo1234',
+      role: 'citizen',
+    });
+    console.log('👤 Demo citizen 2 created: demo2@citizen.com / demo1234');
+  } else {
+    console.log('👤 Using existing demo citizen 2');
+  }
+
+  // Assign alternating citizens so cluster reporters look distinct
+  const citizens = [citizen, citizen2];
 
   let created = 0;
-  for (const d of fakeIssues) {
+  for (let idx = 0; idx < fakeIssues.length; idx++) {
+    const d = fakeIssues[idx];
     const exists = await Issue.findOne({ title: d.title });
     if (exists) { console.log(`  ⏩ Already exists: ${d.title}`); continue; }
 
@@ -71,24 +94,52 @@ async function seed() {
       description: d.description,
       category: d.category,
       imageUrl: '',
+      photoUrl: '',
       location: {
         type: 'Point',
         coordinates: [d.lng, d.lat],
         address: d.address,
       },
       status: d.status,
-      citizen: citizen._id,
+      citizen: citizens[idx % 2]._id,
       assignedDepartment: DEPT_MAP[d.category],
       governmentRemarks: d.status === 'resolved' ? 'Issue resolved by department team.' : '',
       statusHistory: [
-        { status: 'pending', remark: 'Issue submitted', updatedBy: citizen._id },
+        { status: 'pending', remark: 'Issue submitted', updatedBy: citizens[idx % 2]._id },
         ...(d.status !== 'pending'
-          ? [{ status: d.status, remark: `Status updated to ${d.status}`, updatedBy: citizen._id }]
+          ? [{ status: d.status, remark: `Status updated to ${d.status}`, updatedBy: citizens[idx % 2]._id }]
           : []),
       ],
     });
     console.log(`  ✅ Created: ${d.title}`);
     created++;
+  }
+
+  // ── Wire up cluster test groups ────────────────────────────────────────────
+  // Group A: Pothole cluster at Silk Board (3 reports)
+  const silkPrimary = await Issue.findOne({ title: 'Dangerous pothole — Silk Board flyover approach' });
+  const silkMember1 = await Issue.findOne({ title: 'Giant pothole blocking left lane at Silk Board' });
+  if (silkPrimary && silkMember1 && !silkPrimary.isCluster) {
+    silkPrimary.isCluster = true;
+    silkPrimary.clusterMembers = [silkMember1._id];
+    silkPrimary.priorityScore = 1;
+    await silkPrimary.save();
+    silkMember1.clusterId = silkPrimary._id;
+    await silkMember1.save();
+    console.log('🔥 Cluster A wired: Pothole @ Silk Board (2 reports)');
+  }
+
+  // Group B: Garbage cluster at Indiranagar metro (2 reports)
+  const indraPrimary = await Issue.findOne({ title: 'Overflowing garbage bin near Indiranagar metro entrance' });
+  const indraMember1 = await Issue.findOne({ title: 'Garbage dumped illegally beside metro pillar' });
+  if (indraPrimary && indraMember1 && !indraPrimary.isCluster) {
+    indraPrimary.isCluster = true;
+    indraPrimary.clusterMembers = [indraMember1._id];
+    indraPrimary.priorityScore = 1;
+    await indraPrimary.save();
+    indraMember1.clusterId = indraPrimary._id;
+    await indraMember1.save();
+    console.log('🔥 Cluster B wired: Garbage @ Indiranagar (2 reports)');
   }
 
   console.log(`\n🎉 Seeded ${created} new issues. Total fake issues: ${fakeIssues.length}`);

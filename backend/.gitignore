@@ -20,6 +20,11 @@ yarn.lock
 .cache/
 *.tgz
 
+# Uploaded files (user-generated content — never commit)
+uploads/
+!uploads/.gitkeep
+!uploads/issues/.gitkeep
+
 # Optional system/editor files
 .sass-cache/
 *.swp
