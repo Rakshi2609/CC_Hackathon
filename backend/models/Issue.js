@@ -71,11 +71,11 @@ const issueSchema = new mongoose.Schema(
         auditHash: { type: String, default: '' },
       },
     ],
-    upvotes: {
+    // Computed severity score (0-100) saved at creation time
+    severityScore: {
       type: Number,
       default: 0,
     },
-    upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
     // AI Vision Verification
     aiVerified: {

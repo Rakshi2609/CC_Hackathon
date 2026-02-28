@@ -11,11 +11,11 @@ import {
   getIssueById,
   updateIssueStatus,
   deleteIssue,
-  upvoteIssue,
   getStats,
   getMapIssues,
   getGovtClusters,
   getIssueCluster,
+  reclassifyIssue,
 } from '../controllers/issueController.js';
 
 const router = express.Router();
@@ -29,7 +29,7 @@ router.get('/', protect, restrictToGovt, getAllIssues);
 router.post('/', protect, upload.single('image'), createIssue);
 
 router.put('/:id/status', protect, restrictToGovt, updateIssueStatus);
-router.post('/:id/upvote', protect, upvoteIssue);
+router.post('/:id/reclassify', protect, restrictToGovt, reclassifyIssue);
 router.get('/:id/cluster', protect, getIssueCluster);
 router.get('/:id', protect, getIssueById);
 router.delete('/:id', protect, restrictToGovt, deleteIssue);

@@ -8,8 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   Flame, ChevronRight, ChevronLeft, TrendingUp, CheckCircle2,
   AlertCircle, Clock, BarChart3, RefreshCw, Layers,
-  LayoutDashboard, FileText, Map, LogOut, Shield, ThumbsUp,
-  Filter, Users, Target, Activity,
+  LayoutDashboard, FileText, Map, LogOut, Shield,
+  Filter, Users, Target, Activity, ShieldCheck, ShieldAlert, ArrowUpDown,
 } from 'lucide-react';
 
 /* ── Category dot colours ─────────────────────────── */
@@ -55,7 +55,7 @@ function NavItem({ icon: Icon, label, active, onClick }) {
 }
 
 /* ── Reports table (reused by Overview + Reports) ─ */
-function ReportsTable({ issues, title, total, statusFilter, catFilter, CATS, onStatusFilter, onCatFilter, page, totalPages, onPage, navigate, showFilters, viewAllLabel, onViewAll }) {
+function ReportsTable({ issues, title, total, statusFilter, catFilter, CATS, onStatusFilter, onCatFilter, sortOrder, onSortOrder, page, totalPages, onPage, navigate, showFilters, viewAllLabel, onViewAll }) {
   return (
     <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-3 flex-wrap">
@@ -79,6 +79,17 @@ function ReportsTable({ issues, title, total, statusFilter, catFilter, CATS, onS
               <option value="">All Categories</option>
               {CATS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            {/* Sort order */}
+            <div className="flex items-center gap-1 pl-1 border-l border-gray-200">
+              <ArrowUpDown size={10} className="text-gray-400" />
+              <select value={sortOrder} onChange={e => onSortOrder(e.target.value)}
+                className="px-2.5 py-1.5 rounded-sm mono text-[10px] text-gray-600 tracking-wide">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="severity_desc">Severity ↓</option>
+                <option value="severity_asc">Severity ↑</option>
+              </select>
+            </div>
           </div>
         )}
         {viewAllLabel && (
@@ -92,31 +103,54 @@ function ReportsTable({ issues, title, total, statusFilter, catFilter, CATS, onS
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              {['#', 'Title', 'Category', 'Status', 'Upvotes', 'Citizen', 'Reported'].map(h => (
+              {['#', 'Title', 'Category', 'Status', 'Severity', 'AI', 'Citizen'].map(h => (
                 <th key={h} className="px-4 py-2.5 text-left mono text-[9px] text-gray-400 tracking-widest font-semibold uppercase">{h}</th>
               ))}
+              <th
+                onClick={() => showFilters && onSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest')}
+                className={`px-4 py-2.5 text-left mono text-[9px] tracking-widest font-semibold uppercase select-none ${showFilters ? 'cursor-pointer hover:text-blue-600 text-gray-400' : 'text-gray-400'}`}
+              >
+                Reported {showFilters && (sortOrder === 'newest' ? '↓' : sortOrder === 'oldest' ? '↑' : '')}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {issues.map((issue, i) => (
-              <tr key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
-                className={`cursor-pointer transition-colors hover:bg-blue-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                <td className="px-4 py-3 mono text-[10px] text-gray-400">{String(i + 1).padStart(2, '0')}</td>
-                <td className="px-4 py-3"><p className="text-xs text-gray-800 font-medium line-clamp-1 max-w-[240px]">{issue.title}</p></td>
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center gap-1.5 mono text-[9px] text-gray-600">
-                    <span className={`w-2 h-2 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
-                    {issue.category}
-                  </span>
-                </td>
-                <td className="px-4 py-3"><StatusBadge status={issue.status} /></td>
-                <td className="px-4 py-3 mono text-[11px] text-gray-500">{issue.upvotes || 0}</td>
-                <td className="px-4 py-3 text-xs text-gray-500">{issue.citizen?.name || '—'}</td>
-                <td className="px-4 py-3 mono text-[10px] text-gray-400">{new Date(issue.createdAt).toLocaleDateString('en-IN')}</td>
-              </tr>
-            ))}
+            {issues.map((issue, i) => {
+              const sev = issue.severityScore ?? 0;
+              const sevColor = sev >= 70 ? 'text-red-600' : sev >= 50 ? 'text-amber-600' : 'text-green-600';
+              const sevBar   = sev >= 70 ? 'bg-red-500'  : sev >= 50 ? 'bg-amber-400'  : 'bg-green-500';
+              return (
+                <tr key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
+                  className={`cursor-pointer transition-colors hover:bg-blue-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                  <td className="px-4 py-3 mono text-[10px] text-gray-400">{String(i + 1).padStart(2, '0')}</td>
+                  <td className="px-4 py-3"><p className="text-xs text-gray-800 font-medium line-clamp-1 max-w-[200px]">{issue.title}</p></td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 mono text-[9px] text-gray-600">
+                      <span className={`w-2 h-2 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
+                      {issue.category}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3"><StatusBadge status={issue.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 min-w-[80px]">
+                      <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
+                        <div className={`h-full rounded-full ${sevBar}`} style={{ width: `${sev}%` }} />
+                      </div>
+                      <span className={`mono text-[10px] font-semibold ${sevColor}`}>{sev}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {issue.aiVerified
+                      ? <ShieldCheck size={13} className="text-green-600" title="AI Verified" />
+                      : <ShieldAlert size={13} className="text-gray-300" title="Unverified" />}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{issue.citizen?.name || '—'}</td>
+                  <td className="px-4 py-3 mono text-[10px] text-gray-400">{new Date(issue.createdAt).toLocaleDateString('en-IN')}</td>
+                </tr>
+              );
+            })}
             {issues.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center mono text-[11px] text-gray-400">NO RECORDS FOUND</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center mono text-[11px] text-gray-400">NO RECORDS FOUND</td></tr>
             )}
           </tbody>
         </table>
@@ -166,6 +200,7 @@ export default function GovernmentDashboard() {
   const [allIssues, setAllIssues] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest');
   const [reportPage, setReportPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [activeNav, setActiveNav] = useState('overview');
@@ -204,19 +239,29 @@ export default function GovernmentDashboard() {
     return () => clearInterval(t);
   }, []);
 
-  // Reset page when filters change
-  useEffect(() => { setReportPage(1); }, [statusFilter, catFilter]);
+  // Reset page when filters/sort change
+  useEffect(() => { setReportPage(1); }, [statusFilter, catFilter, sortOrder]);
 
   const sortedClusters = [...clusters].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
-  const filteredIssues = allIssues.filter(i =>
-    (!statusFilter || i.status === statusFilter) &&
-    (!catFilter || i.category === catFilter)
-  );
+  const filteredIssues = allIssues
+    .filter(i =>
+      (!statusFilter || i.status === statusFilter) &&
+      (!catFilter || i.category === catFilter)
+    )
+    .sort((a, b) => {
+      if (sortOrder === 'newest')        return new Date(b.createdAt) - new Date(a.createdAt);
+      if (sortOrder === 'oldest')        return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sortOrder === 'severity_desc') return (b.severityScore || 0) - (a.severityScore || 0);
+      if (sortOrder === 'severity_asc')  return (a.severityScore || 0) - (b.severityScore || 0);
+      return 0;
+    });
   const totalPages = Math.max(1, Math.ceil(filteredIssues.length / ITEMS_PER_PAGE));
   const pagedIssues = filteredIssues.slice((reportPage - 1) * ITEMS_PER_PAGE, reportPage * ITEMS_PER_PAGE);
   const resolutionRate = stats.total ? Math.round((stats.resolved / stats.total) * 100) : 0;
-  const topUpvoted = [...allIssues].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 5);
+  const topUpvoted = [...allIssues].sort((a, b) => (b.severityScore || 0) - (a.severityScore || 0)).slice(0, 5);
   const recentResolved = allIssues.filter(i => i.status === 'resolved').slice(0, 5);
+  const aiVerifiedCount = allIssues.filter(i => i.aiVerified).length;
+  const aiUnverifiedCount = allIssues.length - aiVerifiedCount;
 
   const NAV_LABELS = { overview: 'Overview', reports: 'All Reports', map: 'Map View', analytics: 'Analytics' };
 
@@ -307,6 +352,7 @@ export default function GovernmentDashboard() {
         total={allIssues.length}
         statusFilter="" catFilter="" CATS={CATS}
         onStatusFilter={() => { }} onCatFilter={() => { }}
+        sortOrder="newest" onSortOrder={() => { }}
         page={1} totalPages={1} onPage={() => { }}
         navigate={navigate}
         showFilters={false}
@@ -324,6 +370,7 @@ export default function GovernmentDashboard() {
       total={filteredIssues.length}
       statusFilter={statusFilter} catFilter={catFilter} CATS={CATS}
       onStatusFilter={setStatusFilter} onCatFilter={setCatFilter}
+      sortOrder={sortOrder} onSortOrder={setSortOrder}
       page={reportPage} totalPages={totalPages} onPage={setReportPage}
       navigate={navigate}
       showFilters={true}
@@ -345,7 +392,7 @@ export default function GovernmentDashboard() {
         <StatCard icon={Target} value={`${resolutionRate}%`} label="Resolution Rate" sub={`${stats.resolved} of ${stats.total} resolved`} borderColor="border-l-green-600" iconClass="text-green-700" />
         <StatCard icon={Activity} value={stats.inProgress} label="Active Work" sub="currently in-progress" borderColor="border-l-amber-400" iconClass="text-amber-600" />
         <StatCard icon={Users} value={sortedClusters.length} label="Hotspot Clusters" sub="geo-clustered zones" borderColor="border-l-blue-500" iconClass="text-blue-600" />
-        <StatCard icon={ThumbsUp} value={allIssues.reduce((s, i) => s + (i.upvotes || 0), 0)} label="Total Upvotes" sub="community engagement" borderColor="border-l-purple-500" iconClass="text-purple-600" />
+        <StatCard icon={ShieldCheck} value={aiVerifiedCount} label="AI Verified" sub={`${aiUnverifiedCount} unverified`} borderColor="border-l-purple-500" iconClass="text-purple-600" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -462,39 +509,82 @@ export default function GovernmentDashboard() {
           )}
         </div>
 
-        {/* Most upvoted issues */}
+        {/* Most high-severity issues */}
         <div className="bg-white border border-gray-200 rounded-sm p-5">
           <div className="flex items-center gap-2 mb-4">
-            <ThumbsUp size={14} className="text-purple-600" />
-            <span className="text-sm font-semibold text-gray-900">Most Upvoted Issues</span>
-            <span className="ml-auto mono text-[10px] text-gray-400">community priority</span>
+            <Activity size={14} className="text-red-500" />
+            <span className="text-sm font-semibold text-gray-900">Highest Severity Issues</span>
+            <span className="ml-auto mono text-[10px] text-gray-400">by AI score</span>
           </div>
           {topUpvoted.length === 0 ? (
             <p className="mono text-[11px] text-gray-400 py-6 text-center">NO DATA</p>
           ) : (
             <div className="space-y-2">
-              {topUpvoted.map((issue, i) => (
-                <div key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
-                  className="flex items-center gap-3 py-2 px-3 rounded-sm hover:bg-gray-50 cursor-pointer group border border-transparent hover:border-gray-200 transition-all">
-                  <span className={`mono text-[10px] font-bold w-5 text-center flex-shrink-0 ${i === 0 ? 'text-purple-600' : 'text-gray-400'}`}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate group-hover:text-blue-700">{issue.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
-                      <span className="mono text-[9px] text-gray-400">{issue.category}</span>
-                      <StatusBadge status={issue.status} />
+              {topUpvoted.map((issue, i) => {
+                const sev = issue.severityScore ?? 0;
+                const sevColor = sev >= 70 ? 'text-red-600' : sev >= 50 ? 'text-amber-600' : 'text-green-600';
+                const sevBar   = sev >= 70 ? 'bg-red-500'  : sev >= 50 ? 'bg-amber-400'  : 'bg-green-500';
+                return (
+                  <div key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
+                    className="flex items-center gap-3 py-2 px-3 rounded-sm hover:bg-gray-50 cursor-pointer group border border-transparent hover:border-gray-200 transition-all">
+                    <span className={`mono text-[10px] font-bold w-5 text-center flex-shrink-0 ${i === 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate group-hover:text-blue-700">{issue.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
+                        <span className="mono text-[9px] text-gray-400">{issue.category}</span>
+                        <StatusBadge status={issue.status} />
+                        {issue.aiVerified && <ShieldCheck size={9} className="text-green-500" />}
+                      </div>
                     </div>
+                    <div className="flex flex-col items-end gap-1 min-w-[60px]">
+                      <span className={`mono text-[10px] font-bold ${sevColor}`}>{sev}%</span>
+                      <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${sevBar}`} style={{ width: `${sev}%` }} />
+                      </div>
+                    </div>
+                    <ChevronRight size={12} className="text-gray-300 group-hover:text-blue-400 flex-shrink-0" />
                   </div>
-                  <span className="flex items-center gap-1 mono text-[10px] text-purple-600 font-semibold flex-shrink-0">
-                    <ThumbsUp size={10} /> {issue.upvotes || 0}
-                  </span>
-                  <ChevronRight size={12} className="text-gray-300 group-hover:text-blue-400 flex-shrink-0" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </div>
+        {/* AI Verification stats */}
+        <div className="bg-white border border-gray-200 rounded-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck size={14} className="text-green-600" />
+            <span className="text-sm font-semibold text-gray-900">AI Classification</span>
+            <span className="ml-auto mono text-[10px] text-gray-400">{allIssues.length} total</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-green-50 border border-green-200 rounded-sm p-4 text-center">
+              <p className="mono text-3xl font-bold text-green-700 leading-none">{aiVerifiedCount}</p>
+              <p className="text-[10px] text-gray-500 mt-1 font-medium">AI Verified</p>
+              <p className="mono text-[10px] text-gray-400">{allIssues.length ? Math.round((aiVerifiedCount / allIssues.length) * 100) : 0}%</p>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-sm p-4 text-center">
+              <p className="mono text-3xl font-bold text-gray-500 leading-none">{aiUnverifiedCount}</p>
+              <p className="text-[10px] text-gray-500 mt-1 font-medium">Unverified</p>
+              <p className="mono text-[10px] text-gray-400">{allIssues.length ? Math.round((aiUnverifiedCount / allIssues.length) * 100) : 0}%</p>
+            </div>
+          </div>
+          <p className="mono text-[9px] text-gray-400 tracking-widest mb-2 uppercase">Severity Distribution</p>
+          {[['HIGH (≥70%)', allIssues.filter(i => (i.severityScore ?? 0) >= 70).length, 'bg-red-500', 'text-red-600'],
+            ['MEDIUM (50-69%)', allIssues.filter(i => { const s = i.severityScore ?? 0; return s >= 50 && s < 70; }).length, 'bg-amber-400', 'text-amber-700'],
+            ['LOW (<50%)', allIssues.filter(i => (i.severityScore ?? 0) < 50).length, 'bg-green-500', 'text-green-700'],
+          ].map(([label, count, bar, text]) => (
+            <div key={label} className="flex items-center gap-2 mb-2">
+              <span className={`mono text-[9px] w-28 flex-shrink-0 ${text}`}>{label}</span>
+              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${bar}`}
+                  style={{ width: `${allIssues.length ? Math.round((count / allIssues.length) * 100) : 0}%` }} />
+              </div>
+              <span className="mono text-[10px] text-gray-400 w-6 text-right">{count}</span>
+            </div>
+          ))}
         </div>
       </div>
 

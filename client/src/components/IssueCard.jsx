@@ -1,6 +1,6 @@
 ﻿import { Link } from 'react-router-dom';
 import StatusBadge from './StatusBadge';
-import { ShieldCheck, Flame, MapPin, ThumbsUp, Building2 } from 'lucide-react';
+import { ShieldCheck, Flame, MapPin, Activity, Building2 } from 'lucide-react';
 
 const CATEGORY_ICON = {
   Pothole: 'M', Streetlight: 'E', Garbage: 'W', Drainage: 'D', 'Water Leakage': 'H', Others: 'G',
@@ -23,6 +23,12 @@ export default function IssueCard({ issue, govView = false }) {
   const memberCount = issue.clusterMembers?.length || 0;
   const catColor = CATEGORY_COLOR[issue.category] || CATEGORY_COLOR.Others;
   const catShort = issue.category?.substring(0, 2).toUpperCase() || 'XX';
+
+  const severity = issue.severityScore ?? 0;
+  const sevColor = severity >= 70 ? 'text-red-600 bg-red-50 border-red-200'
+    : severity >= 50 ? 'text-amber-700 bg-amber-50 border-amber-200'
+    : 'text-green-700 bg-green-50 border-green-200';
+  const sevBar = severity >= 70 ? 'bg-red-500' : severity >= 50 ? 'bg-amber-400' : 'bg-green-500';
 
   return (
     <Link
@@ -101,20 +107,23 @@ export default function IssueCard({ issue, govView = false }) {
         <p className="text-[11px] text-gray-500 line-clamp-2 mb-3 leading-relaxed">{issue.description}</p>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-100 pt-2.5">
-          <span className="flex items-center gap-1 mono text-[10px] text-gray-500">
+        <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 gap-2">
+          <span className="flex items-center gap-1 mono text-[10px] text-gray-500 truncate">
             <MapPin size={9} />
             {issue.location?.address
-              ? issue.location.address.substring(0, 22) + (issue.location.address.length > 22 ? 'â€¦' : '')
+              ? issue.location.address.substring(0, 22) + (issue.location.address.length > 22 ? '…' : '')
               : `${Number(issue.location?.coordinates?.[1]).toFixed(3)}, ${Number(issue.location?.coordinates?.[0]).toFixed(3)}`}
           </span>
-          {govView && issue.citizen ? (
-            <span className="mono text-[10px] text-blue-500">{issue.citizen.name}</span>
-          ) : (
-            <span className="flex items-center gap-1 mono text-[10px] text-gray-500">
-              <ThumbsUp size={9} /> {issue.upvotes || 0}
-            </span>
-          )}
+          {/* Severity badge */}
+          <span className={`flex items-center gap-1 mono text-[9px] font-semibold px-1.5 py-0.5 rounded-sm border flex-shrink-0 ${sevColor}`}>
+            <Activity size={8} />
+            {severity}%
+          </span>
+        </div>
+
+        {/* Severity bar */}
+        <div className="mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${sevBar}`} style={{ width: `${severity}%` }} />
         </div>
 
         {issue.assignedDepartment && (

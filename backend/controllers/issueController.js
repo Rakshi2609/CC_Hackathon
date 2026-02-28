@@ -30,8 +30,17 @@ const DEPARTMENT_MAP = {
   Others: 'General Administration',
 };
 
-// Radius in metres used for clustering
-const CLUSTER_RADIUS_M = 100;
+// ── Severity score helper ──────────────────────────────────────────────────
+const CATEGORY_SEVERITY_BASE = {
+  'Water Leakage': 70, Drainage: 60, Pothole: 55,
+  Garbage: 45, Streetlight: 40, Others: 35,
+};
+function computeSeverity({ category, aiVerified, clusterMembersCount = 0 }) {
+  const base        = CATEGORY_SEVERITY_BASE[category] || 35;
+  const aiBonus     = aiVerified ? 15 : 0;
+  const clusterBonus = Math.min(20, clusterMembersCount * 5);
+  return Math.min(100, Math.round(base + aiBonus + clusterBonus));
+}
 
 // ──────────────── CITIZEN ────────────────
 
@@ -67,11 +76,14 @@ export const createIssue = async (req, res) => {
       }
     }
 
+    // ── Severity score ────────────────────────────────────────────────────
+    const severityScore = computeSeverity({ category: aiDetectedCategory, aiVerified });
+
     // Prepare new issue data
     const newIssueData = {
       title,
       description,
-      category: aiDetectedCategory,   // use AI-detected category (may differ from citizen's choice)
+      category: aiDetectedCategory,
       imageUrl,
       photoUrl: imageUrl,
       resolutionPhotoUrl: '',
@@ -83,6 +95,7 @@ export const createIssue = async (req, res) => {
       citizen: req.user.id,
       status: 'pending',
       priorityScore: 0,
+      severityScore,
       clusterId: null,
       clusterMembers: [],
       isCluster: false,
@@ -178,29 +191,7 @@ export const getMyIssues = async (req, res) => {
   }
 };
 
-// POST /api/issues/:id/upvote
-export const upvoteIssue = async (req, res) => {
-  try {
-    const issue = await Issue.findById(req.params.id);
-    if (!issue) return res.status(404).json({ message: 'Issue not found' });
-
-    const alreadyUpvoted = issue.upvotedBy.includes(req.user.id);
-    if (alreadyUpvoted) {
-      issue.upvotes -= 1;
-      issue.upvotedBy = issue.upvotedBy.filter(
-        (uid) => uid.toString() !== req.user.id
-      );
-    } else {
-      issue.upvotes += 1;
-      issue.upvotedBy.push(req.user.id);
-    }
-
-    await issue.save();
-    res.json({ upvotes: issue.upvotes, upvotedBy: issue.upvotedBy });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// POST /api/issues/:id/upvote — REMOVED (upvote feature deprecated)
 
 // ──────────────── GOVERNMENT ────────────────
 
@@ -230,10 +221,12 @@ export const getAllIssues = async (req, res) => {
 
     const now = Date.now();
     const scored = allForScoring.map((issue) => {
-      const daysPending = Math.max(1, (now - new Date(issue.createdAt).getTime()) / 86400000);
-      const clusterSize = (issue.clusterMembers?.length || 0) + 1;
-      const priorityScore = ((issue.upvotes || 0) * 0.4 + clusterSize * 0.6) / daysPending;
-      return { ...issue, computedPriority: priorityScore };
+      const daysPending  = Math.max(1, (now - new Date(issue.createdAt).getTime()) / 86400000);
+      const clusterSize  = (issue.clusterMembers?.length || 0) + 1;
+      const severityBase = issue.severityScore || 0;
+      // Priority = (severity * cluster size) / days pending
+      const computedPriority = (severityBase * clusterSize) / daysPending;
+      return { ...issue, computedPriority };
     });
 
     scored.sort((a, b) => b.computedPriority - a.computedPriority);
@@ -251,7 +244,7 @@ export const getAllIssues = async (req, res) => {
 export const getMapIssues = async (req, res) => {
   try {
     const issues = await Issue.find({})
-      .select('title category status location upvotes createdAt citizen')
+      .select('title category status location severityScore aiVerified createdAt citizen')
       .populate('citizen', 'name')
       .lean();
     res.json(issues);
@@ -436,6 +429,9 @@ export const getIssueCluster = async (req, res) => {
         imageUrl: i.imageUrl,
         status: i.status,
         location: i.location,
+        aiVerified: i.aiVerified,
+        aiNote: i.aiNote,
+        severityScore: i.severityScore,
       }))
       : null;
 
@@ -459,6 +455,37 @@ export const deleteIssue = async (req, res) => {
     const issue = await Issue.findByIdAndDelete(req.params.id);
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
     res.json({ message: 'Issue deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/issues/:id/reclassify — government only — re-run AI on existing issue
+export const reclassifyIssue = async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.id);
+    if (!issue) return res.status(404).json({ message: 'Issue not found' });
+
+    if (!issue.imageUrl) {
+      return res.status(400).json({ message: 'No image attached to this issue.' });
+    }
+
+    // Strip leading slash so classifyIssueImage gets a relative path
+    const imagePath = issue.imageUrl.replace(/^\//, '');
+    const result = await classifyIssueImage(imagePath, issue.category);
+
+    issue.aiVerified         = result.aiVerified;
+    issue.aiNote             = result.aiNote;
+    issue.category           = result.detectedCategory;
+    issue.severityScore      = computeSeverity({
+      category: result.detectedCategory,
+      aiVerified: result.aiVerified,
+      clusterMembersCount: issue.clusterMembers?.length || 0,
+    });
+    await issue.save();
+
+    console.log(`[AI reclassify] issue=${issue._id} category=${issue.category} verified=${issue.aiVerified}`);
+    res.json({ issue, aiResult: result });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -8,9 +8,9 @@ import CompareImage from 'react-compare-image';
 import confetti from 'canvas-confetti';
 import { SocketContext } from '../context/SocketContext';
 import {
-  ArrowLeft, ThumbsUp, Trash2, RefreshCw,
-  Users, AlertTriangle, CheckCircle2, Clock, MapPin,
-  ChevronLeft, ChevronRight, ImageOff,
+  ArrowLeft, Trash2, RefreshCw,
+  Users, AlertTriangle, CheckCircle2, Clock,
+  ChevronLeft, ChevronRight, ImageOff, ShieldCheck, ShieldAlert, Activity,
 } from 'lucide-react';
 
 const STATUSES = ['pending', 'in-progress', 'resolved'];
@@ -34,8 +34,8 @@ export default function IssueDetail() {
   const [loading, setLoading] = useState(true);
   const [govForm, setGovForm] = useState({ status: '', remark: '', assignedDepartment: '' });
   const [updating, setUpdating] = useState(false);
-  const [toast, setToast] = useState({ msg: '', ok: true });
-  const [cluster, setCluster] = useState(null);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [toast, setToast] = useState({ msg: '', ok: true });  const [cluster, setCluster] = useState(null);
   const [clusterSlideIdx, setClusterSlideIdx] = useState(0);
   const { socket } = useContext(SocketContext);
   const confettiFired = useRef(false);
@@ -91,13 +91,6 @@ export default function IssueDetail() {
     }
   };
 
-  const handleUpvote = async () => {
-    try {
-      const res = await api.post(`/issues/${id}/upvote`);
-      setIssue((prev) => ({ ...prev, upvotes: res.data.upvotes, upvotedBy: res.data.upvotedBy }));
-    } catch {/* ignore */ }
-  };
-
   const handleGovUpdate = async (e) => {
     e.preventDefault();
     setUpdating(true);
@@ -126,7 +119,13 @@ export default function IssueDetail() {
     } catch {/* ignore */ }
   };
 
-  const hasUpvoted = issue?.upvotedBy?.includes(user?._id);
+  // ── Severity helpers ──────────────────────────────────────────────
+  const severity = issue?.severityScore ?? 0;
+  const severityColor = severity >= 70 ? 'text-red-600 bg-red-50 border-red-200'
+    : severity >= 50 ? 'text-amber-700 bg-amber-50 border-amber-200'
+    : 'text-green-700 bg-green-50 border-green-200';
+  const severityBar = severity >= 70 ? 'bg-red-500' : severity >= 50 ? 'bg-amber-400' : 'bg-green-500';
+  const severityLabel = severity >= 70 ? 'HIGH' : severity >= 50 ? 'MEDIUM' : 'LOW';
 
   if (loading) {
     return (
@@ -358,27 +357,66 @@ export default function IssueDetail() {
                   ['REPORTED BY', issue.citizen?.name || '—'],
                   ['TIMESTAMP', date],
                   ['LOCATION', issue.location?.address || `${Number(issue.location?.coordinates?.[1]).toFixed(5)}, ${Number(issue.location?.coordinates?.[0]).toFixed(5)}`],
-                  ['UPVOTES', String(issue.upvotes || 0)],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <span className="mono text-[9px] text-gray-400 tracking-widest block mb-0.5">{k}</span>
                     <span className="mono text-[11px] text-gray-700">{v}</span>
                   </div>
                 ))}
+                {/* Severity */}
+                <div>
+                  <span className="mono text-[9px] text-gray-400 tracking-widest block mb-1">SEVERITY</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${severityBar}`} style={{ width: `${severity}%` }} />
+                    </div>
+                    <span className={`mono text-[10px] font-bold px-1.5 py-0.5 rounded-sm border ${severityColor}`}>{severityLabel} {severity}%</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Upvote */}
-              {user?.role === 'citizen' && (
-                <button
-                  onClick={handleUpvote}
-                  className={`mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-sm border mono text-[11px] font-semibold transition-all ${hasUpvoted
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
-                    }`}
-                >
-                  <ThumbsUp size={12} />
-                  {hasUpvoted ? 'UPVOTED' : 'UPVOTE'} ({issue.upvotes})
-                </button>
+              {/* AI Intelligence panel (government only) */}
+              {user?.role === 'government' && (
+                <div className={`mt-4 p-3 rounded-sm border ${
+                  issue.aiVerified ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {issue.aiVerified
+                        ? <ShieldCheck size={12} className="text-green-600" />
+                        : <ShieldAlert size={12} className="text-gray-400" />}
+                      <span className={`mono text-[9px] tracking-widest font-semibold ${
+                        issue.aiVerified ? 'text-green-700' : 'text-gray-400'
+                      }`}>
+                        {issue.aiVerified ? 'AI VERIFIED · AUTHENTIC CIVIC ISSUE' : 'AI UNVERIFIED'}
+                      </span>
+                    </div>
+                    {issue.imageUrl && (
+                      <button
+                        onClick={async () => {
+                          setReclassifying(true);
+                          try {
+                            const { data } = await api.post(`/issues/${issue._id}/reclassify`);
+                            setIssue(data.issue);
+                            setToast({ msg: `AI re-classified: ${data.aiResult.detectedCategory} (${data.aiResult.aiVerified ? 'verified' : 'unverified'})`, ok: true });
+                          } catch (e) {
+                            setToast({ msg: e.response?.data?.message || 'Re-classify failed', ok: false });
+                          } finally {
+                            setReclassifying(false);
+                          }
+                        }}
+                        disabled={reclassifying}
+                        className="flex items-center gap-1 mono text-[8px] tracking-widest px-2 py-1 rounded-sm border border-gray-300 bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-50"
+                      >
+                        <RefreshCw size={9} className={reclassifying ? 'animate-spin' : ''} />
+                        {reclassifying ? 'RUNNING...' : 'RE-RUN AI'}
+                      </button>
+                    )}
+                  </div>
+                  {issue.aiNote && (
+                    <p className="text-[11px] text-gray-600 italic">&ldquo;{issue.aiNote}&rdquo;</p>
+                  )}
+                </div>
               )}
 
               {issue.governmentRemarks && (
