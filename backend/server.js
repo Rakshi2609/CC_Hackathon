@@ -27,7 +27,6 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
 
-  // Citizen joins their personal room for targeted notifications
   socket.on('join_room', (userId) => {
     socket.join(userId);
     console.log(`[Socket] User ${userId} joined room`);
@@ -37,6 +36,42 @@ io.on('connection', (socket) => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
   });
 });
+
+const IOT_SENSORS = [
+  { name: 'Smart Lamp #A12', category: 'Streetlight', lat: 28.6139, lng: 77.2090 },
+  { name: 'Smart Lamp #B07', category: 'Streetlight', lat: 19.0760, lng: 72.8777 },
+  { name: 'Drain Sensor #D3', category: 'Drainage', lat: 12.9716, lng: 77.5946 },
+  { name: 'Road Monitor #R9', category: 'Pothole', lat: 13.0827, lng: 80.2707 },
+  { name: 'Bin Sensor #G2', category: 'Garbage', lat: 22.5726, lng: 88.3639 },
+];
+
+const startIoTSimulation = () => {
+  setInterval(() => {
+    const sensor = IOT_SENSORS[Math.floor(Math.random() * IOT_SENSORS.length)];
+    const faultTypes = {
+      Streetlight: 'Automated fault detected: lamp not responding',
+      Drainage: 'Water level threshold exceeded',
+      Pothole: 'Surface anomaly detected by road sensor',
+      Garbage: 'Bin capacity at 90%+ — requires immediate collection',
+    };
+    const ghostReport = {
+      id: `iot-${Date.now()}`,
+      source: 'IoT Sensor',
+      sensor: sensor.name,
+      category: sensor.category,
+      title: `[IoT] ${sensor.name} — Auto Alert`,
+      description: faultTypes[sensor.category] || 'Automated infrastructure alert',
+      location: {
+        coordinates: [
+          sensor.lng + (Math.random() - 0.5) * 0.01,
+          sensor.lat + (Math.random() - 0.5) * 0.01,
+        ],
+      },
+      timestamp: new Date().toISOString(),
+    };
+    io.emit('iot_ghost_report', ghostReport);
+  }, 30000);
+};
 
 // Attach io instance to every request so controllers can emit events
 app.use((req, _res, next) => {
@@ -73,6 +108,7 @@ mongoose
   .then(() => {
     console.log('[DB] MongoDB connected');
     httpServer.listen(PORT, () => console.log(`[Server] Running on http://localhost:${PORT}`));
+    startIoTSimulation();
   })
   .catch((err) => {
     console.error('[DB] Connection failed:', err.message);

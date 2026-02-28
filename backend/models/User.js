@@ -21,11 +21,6 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
-    role: {
-      type: String,
-      enum: ['citizen', 'government'],
-      default: 'citizen',
-    },
     phone: {
       type: String,
       trim: true,
@@ -34,6 +29,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    role: {
+      type: String,
+      enum: ['citizen', 'government'],
+      default: 'citizen',
+    },
+    // Civic Hero Gamification fields
+    karmaPoints: {
+      type: Number,
+      default: 0,
+    },
+    badges: [{
+      type: String,
+      trim: true,
+    }],
   },
   { timestamps: true }
 );

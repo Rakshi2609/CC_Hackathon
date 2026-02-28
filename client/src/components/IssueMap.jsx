@@ -1,18 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, Flame, Layers } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 const STATUS_COLOR = {
-  pending:      '#ef4444', // red
+  pending: '#ef4444', // red
   'in-progress': '#f59e0b', // amber
-  resolved:     '#22c55e', // green
+  resolved: '#22c55e', // green
 };
 
 const STATUS_LABEL = {
-  pending:      '🔴 Pending',
+  pending: '🔴 Pending',
   'in-progress': '🟡 In Progress',
-  resolved:     '🟢 Resolved',
+  resolved: '🟢 Resolved',
 };
 
 const CATEGORY_ICONS = {
@@ -24,9 +25,9 @@ const CATEGORY_ICONS = {
 function AutoFit({ issues }) {
   const map = useMap();
   useEffect(() => {
-    const valid = issues.filter((i) => i.location?.coordinates?.length === 2);
+    const valid = issues.filter((i) => Array.isArray(i.location?.coordinates) && i.location.coordinates.length >= 2 && i.location.coordinates[0] != null);
     if (valid.length === 0) return;
-    const bounds = valid.map((i) => [i.location.coordinates[1], i.location.coordinates[0]]);
+    const bounds = valid.map((i) => [Number(i.location.coordinates[1]), Number(i.location.coordinates[0])]);
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
   }, [issues, map]);
   return null;
@@ -34,43 +35,54 @@ function AutoFit({ issues }) {
 
 export default function IssueMap({ issues = [], title = 'Issue Heatmap', readOnly = false }) {
   const navigate = useNavigate();
-  const validIssues = issues.filter((i) => i.location?.coordinates?.length === 2);
+  const validIssues = issues.filter((i) => Array.isArray(i.location?.coordinates) && i.location.coordinates.length >= 2 && i.location.coordinates[0] != null && i.location.coordinates[1] != null);
+  const [heatmapOn, setHeatmapOn] = useState(false);
 
   // Default center — India centroid  
   const defaultCenter = [20.5937, 78.9629];
 
   if (validIssues.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-400 text-sm">
-        🗺️ No location data available to display on map yet
+      <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(2,6,23,0.6)' }}>
+        <p className="mono text-[11px] text-slate-700 tracking-widest">NO_LOCATION_DATA</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="h-full flex flex-col" style={{ background: 'rgba(2,6,23,0.8)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-800 text-sm">{title}</h2>
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-gray-500">
-          {Object.entries(STATUS_LABEL).map(([k, v]) => (
-            <span key={k} className="flex items-center gap-1">
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full"
-                style={{ background: STATUS_COLOR[k] }}
-              />
-              {v.split(' ').slice(1).join(' ')}
-            </span>
-          ))}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.07] flex-shrink-0">
+        <span className="mono text-[11px] text-slate-400 tracking-widest">{title}</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setHeatmapOn((v) => !v)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-[3px] mono text-[10px] font-semibold border transition tracking-wide ${
+              heatmapOn
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                : 'border-white/10 text-slate-600 hover:border-white/20 hover:text-slate-400'
+            }`}
+          >
+            <Layers size={11} />
+            {heatmapOn ? 'HEATMAP_ON' : 'HEATMAP'}
+          </button>
+          <div className="flex items-center gap-3">
+            {Object.entries(STATUS_COLOR).map(([k, color]) => (
+              <span key={k} className="flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
+                <span className="mono text-[9px] text-slate-600 tracking-wide uppercase">{k}</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Map */}
+      <div style={{ flex: 1, minHeight: 0 }}>
       <MapContainer
         center={defaultCenter}
         zoom={5}
-        style={{ height: '400px', width: '100%' }}
+        style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
       >
         <TileLayer
@@ -79,22 +91,39 @@ export default function IssueMap({ issues = [], title = 'Issue Heatmap', readOnl
         />
         <AutoFit issues={validIssues} />
 
+        {heatmapOn && validIssues.map((issue) => {
+          const lng = Number(issue.location.coordinates[0]);
+          const lat = Number(issue.location.coordinates[1]);
+          const risk = (issue.upvotes || 0) + (issue.clusterMembers?.length || 0) * 2;
+          const radius = 20 + Math.min(risk * 4, 60);
+          const opacity = 0.12 + Math.min(risk * 0.03, 0.35);
+          const color = risk > 8 ? '#dc2626' : risk > 4 ? '#f97316' : '#fbbf24';
+          return (
+            <CircleMarker
+              key={`heat-${issue._id}`}
+              center={[lat, lng]}
+              radius={radius}
+              pathOptions={{ color, fillColor: color, fillOpacity: opacity, weight: 0 }}
+            />
+          );
+        })}
+
         {validIssues.map((issue) => {
-          const [lng, lat] = issue.location.coordinates;
+          const lng = Number(issue.location.coordinates[0]);
+          const lat = Number(issue.location.coordinates[1]);
           const isClusterPrimary = issue.isCluster && !issue.clusterId;
           const isClusterMember = !!issue.clusterId;
           const memberCount = issue.clusterMembers?.length || 0;
 
-          // Cluster primaries get an orange "hotspot" ring; members get a smaller yellow ring
           let color = STATUS_COLOR[issue.status] || '#6b7280';
           let borderColor = color;
           let radius = 10;
           let weight = 2;
 
           if (isClusterPrimary) {
-            color = '#f97316';     // orange-500 for hotspot
+            color = '#f97316';
             borderColor = '#ea580c';
-            radius = 14 + Math.min(memberCount * 2, 12); // bigger for more members
+            radius = 14 + Math.min(memberCount * 2, 12);
             weight = 3;
           } else if (isClusterMember) {
             borderColor = '#f97316';
@@ -107,48 +136,37 @@ export default function IssueMap({ issues = [], title = 'Issue Heatmap', readOnl
               key={issue._id}
               center={[lat, lng]}
               radius={radius}
-              pathOptions={{
-                color: borderColor,
-                fillColor: color,
-                fillOpacity: isClusterPrimary ? 0.85 : 0.75,
-                weight,
-              }}
-              eventHandlers={readOnly ? {} : {
-                click: () => navigate(`/issues/${issue._id}`),
-              }}
+              pathOptions={{ color: borderColor, fillColor: color, fillOpacity: 0.75, weight }}
+              eventHandlers={!readOnly ? { click: () => navigate(`/issues/${issue._id}`) } : {}}
             >
               <Popup>
-                <div className="text-xs space-y-1 min-w-[160px]">
+                <div style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '10px 12px', minWidth: 180, fontFamily: 'inherit' }}>
                   {isClusterPrimary && (
-                    <p className="font-bold text-orange-600 text-xs">
-                      🔥 Hotspot — {memberCount + 1} reports nearby
+                    <p style={{ color: '#fb923c', fontSize: 10, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      HOTSPOT · {memberCount + 1} REPORTS
                     </p>
                   )}
                   {isClusterMember && (
-                    <p className="text-orange-500 text-xs">📍 Part of a hotspot cluster</p>
+                    <p style={{ color: '#fb923c', fontSize: 10, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6 }}>CLUSTER_MEMBER</p>
                   )}
-                  <p className="font-bold text-gray-900 text-sm leading-tight">{issue.title}</p>
-                  <p className="text-gray-500">
-                    {CATEGORY_ICONS[issue.category] || '📌'} {issue.category}
+                  <p style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600, marginBottom: 4, lineHeight: 1.3 }}>
+                    {issue.title}
+                    {issue.aiVerified && <span style={{ color: '#22c55e', marginLeft: 4, fontSize: 10 }}>AI_VFD</span>}
                   </p>
-                  <p style={{ color: STATUS_COLOR[issue.status] || '#6b7280' }}>
-                    {STATUS_LABEL[issue.status] || issue.status}
-                  </p>
-                  {issue.location?.address && (
-                    <p className="text-gray-400">📍 {issue.location.address}</p>
-                  )}
+                  <p style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, marginBottom: 2 }}>{issue.category?.toUpperCase()}</p>
+                  <p style={{ color: STATUS_COLOR[issue.status] || '#6b7280', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, marginBottom: 2 }}>{issue.status?.toUpperCase()}</p>
                   {issue.citizen?.name && (
-                    <p className="text-gray-400">👤 Reported by: <span className="font-medium text-gray-600">{issue.citizen.name}</span></p>
+                    <p style={{ color: '#475569', fontSize: 10 }}>{issue.citizen.name}</p>
                   )}
                   {issue.upvotes > 0 && (
-                    <p className="text-gray-400">👍 {issue.upvotes} upvote{issue.upvotes !== 1 ? 's' : ''}</p>
+                    <p style={{ color: '#475569', fontSize: 10, fontFamily: 'monospace' }}>{issue.upvotes} UPVOTES</p>
                   )}
                   {!readOnly && (
                     <button
                       onClick={() => navigate(`/issues/${issue._id}`)}
-                      className="mt-1 text-blue-600 hover:underline font-medium"
+                      style={{ marginTop: 6, color: '#3b82f6', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
-                      View details →
+                      VIEW DETAIL →
                     </button>
                   )}
                 </div>
@@ -157,20 +175,6 @@ export default function IssueMap({ issues = [], title = 'Issue Heatmap', readOnl
           );
         })}
       </MapContainer>
-
-      <div className="px-5 py-2 text-xs text-gray-400 border-t border-gray-50 flex items-center gap-3">
-        <span>
-          Showing {validIssues.length} issue{validIssues.length !== 1 ? 's' : ''}
-        </span>
-        {validIssues.some((i) => i.isCluster) && (
-          <span className="flex items-center gap-1 text-orange-500 font-medium">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-500" />
-            Hot-spot cluster
-          </span>
-        )}
-        <span className="ml-auto">
-          {readOnly ? 'Click a pin to view issue info' : 'Click a marker to view details'}
-        </span>
       </div>
     </div>
   );

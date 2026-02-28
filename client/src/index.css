@@ -1,1 +1,259 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+:root {
+    --bg: #020617;
+    --s1: #0c1628;
+    --s2: #111827;
+    --s3: #1e293b;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-hi: rgba(255, 255, 255, 0.13);
+    --cobalt: #2563eb;
+    --cobalt-dim: #1d4ed8;
+    --amber: #f59e0b;
+    --emerald: #10b981;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted-hi: #94a3b8;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.mono {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+/* ── Glass panes ──────────────────────────────────────────── */
+.glass {
+    background: rgba(12, 22, 40, 0.75);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-hi);
+}
+
+.glass-light {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-hi);
+}
+
+/* ── AI Scan beam ─────────────────────────────────────────── */
+@keyframes scanBeam {
+    0% {
+        top: 0;
+        opacity: 1;
+    }
+
+    95% {
+        opacity: 1;
+    }
+
+    100% {
+        top: calc(100% - 3px);
+        opacity: 0.5;
+    }
+}
+
+.scan-beam {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(6, 182, 212, 0.3) 15%,
+            #22d3ee 50%,
+            rgba(6, 182, 212, 0.3) 85%,
+            transparent 100%);
+    box-shadow: 0 0 14px #22d3ee, 0 0 28px rgba(34, 211, 238, 0.35);
+    animation: scanBeam 1.8s ease-in-out infinite alternate;
+    z-index: 10;
+}
+
+/* ── Cluster pulse ring ───────────────────────────────────── */
+@keyframes pulseRing {
+    0% {
+        transform: scale(1);
+        opacity: 0.75;
+    }
+
+    100% {
+        transform: scale(2.8);
+        opacity: 0;
+    }
+}
+
+.pulse-ring {
+    position: relative;
+}
+
+.pulse-ring::before,
+.pulse-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--amber);
+    animation: pulseRing 2.2s ease-out infinite;
+    pointer-events: none;
+}
+
+.pulse-ring::after {
+    animation-delay: 0.8s;
+}
+
+/* ── Card enter ───────────────────────────────────────────── */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeInUp 0.15s ease-out both;
+}
+
+/* ── Skeleton shimmer ─────────────────────────────────────── */
+@keyframes shimmer {
+    0% {
+        background-position: -600px 0;
+    }
+
+    100% {
+        background-position: 600px 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--s2) 25%, var(--s3) 50%, var(--s2) 75%);
+    background-size: 1200px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* ── Priority blink ───────────────────────────────────────── */
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.2;
+    }
+}
+
+.blink {
+    animation: blink 1.4s ease-in-out infinite;
+}
+
+/* ── Hex clip ─────────────────────────────────────────────── */
+.hex-clip {
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--s3);
+    border-radius: 2px;
+}
+
+/* ── Global input dark reset ──────────────────────────────── */
+input,
+select,
+textarea {
+    background: rgba(15, 23, 42, 0.7) !important;
+    color: #e2e8f0 !important;
+    border-color: rgba(255, 255, 255, 0.09) !important;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #334155 !important;
+}
+
+option {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+/* ── Dark Leaflet overrides ───────────────────────────────── */
+.leaflet-container {
+    background: #0c1628 !important;
+}
+
+.leaflet-tile {
+    filter: brightness(0.62) saturate(0.7) hue-rotate(180deg) invert(1) !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: rgba(10, 18, 35, 0.94) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 4px !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+.leaflet-popup-tip {
+    background: rgba(10, 18, 35, 0.94) !important;
+}
+
+.leaflet-popup-close-button {
+    color: #64748b !important;
+}
+
+.leaflet-control-attribution {
+    display: none !important;
+}
+
+.leaflet-control-zoom a {
+    background: rgba(12, 22, 40, 0.85) !important;
+    color: #94a3b8 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}

@@ -1,4 +1,25 @@
+// PUT /api/issues/:id/status — government updates status (cascade to cluster)
+
+
+// GET /api/issues/clusters — all cluster primaries for government
+export const getGovtClusters = async (req, res) => {
+  try {
+    const clusters = await Issue.find({ isClusterPrimary: true })
+      .sort({ priorityScore: -1, clusterMembers: -1 })
+      .populate({
+        path: 'clusterMembers',
+        select: 'citizen status location',
+        populate: { path: 'citizen', select: 'name email phone' },
+      });
+    res.json({ clusters });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 import Issue from '../models/Issue.js';
+import { notifyClusterMembers } from '../utils/socketHelpers.js';
+import { validateIssueImage } from '../services/aiService.js';
+import crypto from 'crypto';
 
 const DEPARTMENT_MAP = {
   Pothole: 'Roads & Infrastructure',
@@ -17,77 +38,102 @@ const CLUSTER_RADIUS_M = 100;
 // POST /api/issues
 export const createIssue = async (req, res) => {
   try {
-    const { title, description, category, latitude, longitude, address } = req.body;
+    // Extract data from request — frontend sends latitude/longitude as separate fields
+    const { title, description, category, address = '' } = req.body;
+    const lat = parseFloat(req.body.latitude);
+    const lng = parseFloat(req.body.longitude);
 
-    const imageUrl = req.file
-      ? `/uploads/issues/${req.file.filename}`
-      : '';
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ message: 'Valid latitude and longitude are required.' });
+    }
 
-    const lng = parseFloat(longitude);
-    const lat = parseFloat(latitude);
+    // Image saved to disk by multer — build a relative URL if file was uploaded
+    const imageUrl = req.file ? `/${req.file.path.replace(/\\/g, '/')}` : '';
 
-    const issue = await Issue.create({
+    // AI Vision Verification (optional — skip if no buffer available with disk storage)
+    let aiVerified = false;
+
+    // Prepare new issue data
+    const newIssueData = {
       title,
       description,
       category,
       imageUrl,
+      photoUrl: imageUrl,
+      resolutionPhotoUrl: '',
+      address,
       location: {
         type: 'Point',
         coordinates: [lng, lat],
-        address: address || '',
       },
       citizen: req.user.id,
-      assignedDepartment: DEPARTMENT_MAP[category] || 'General Administration',
-      statusHistory: [
-        {
-          status: 'pending',
-          remark: 'Issue submitted',
-          updatedBy: req.user.id,
-        },
-      ],
-    });
+      status: 'pending',
+      priorityScore: 0,
+      clusterId: null,
+      clusterMembers: [],
+      isClusterPrimary: false,
+      aiVerified,
+    };
 
-    // ── Cluster detection ─────────────────────────────────────────
-    // Find all existing issues of the same category within 100 m,
-    // excluding the one we just created.
-    const nearby = await Issue.find({
-      _id: { $ne: issue._id },
+    // Find a nearby unresolved issue of the same category within 100m
+    const nearby = await Issue.findOne({
       category,
+      status: { $ne: 'resolved' },
       location: {
         $near: {
           $geometry: { type: 'Point', coordinates: [lng, lat] },
-          $maxDistance: CLUSTER_RADIUS_M,
+          $maxDistance: 100,
         },
       },
-    }).select('_id clusterId isCluster clusterMembers');
+    });
 
-    if (nearby.length > 0) {
-      // Prefer an existing cluster primary; otherwise treat the first
-      // nearby issue as the primary.
-      let primary = nearby.find((i) => i.isCluster && !i.clusterId) || nearby[0];
+    let wasClustered = false;
+    let clusterCount = 1;
+    let createdIssue;
 
-      // If the found primary is itself a cluster-member, walk up to its primary
-      if (primary.clusterId) {
-        const realPrimary = await Issue.findById(primary.clusterId);
-        if (realPrimary) primary = realPrimary;
+    if (nearby) {
+      // Scenario A: Join an existing cluster primary
+      if (nearby.isClusterPrimary) {
+        newIssueData.clusterId = nearby._id;
+        createdIssue = await Issue.create(newIssueData);
+        // Add new issue to clusterMembers and increment priorityScore
+        nearby.clusterMembers.push(createdIssue._id);
+        nearby.priorityScore = (nearby.priorityScore || 0) + 1;
+        await nearby.save();
+        wasClustered = true;
+        clusterCount = (nearby.clusterMembers?.length || 0) + 1;
       }
-
-      // Link the new issue to the primary
-      issue.clusterId = primary._id;
-      await issue.save();
-
-      // Update the primary cluster record
-      await Issue.findByIdAndUpdate(primary._id, {
-        $addToSet: { clusterMembers: issue._id },
-        $set: { isCluster: true },
-      });
+      // Scenario B: Upgrade a standalone to cluster primary
+      else {
+        nearby.isClusterPrimary = true;
+        nearby.clusterMembers = [];
+        newIssueData.clusterId = nearby._id;
+        createdIssue = await Issue.create(newIssueData);
+        nearby.clusterMembers.push(createdIssue._id);
+        nearby.priorityScore = (nearby.priorityScore || 0) + 1;
+        await nearby.save();
+        wasClustered = true;
+        clusterCount = 2; // The upgraded primary + this new one
+      }
+    } else {
+      // Scenario C: Standalone
+      createdIssue = await Issue.create(newIssueData);
+      wasClustered = false;
+      clusterCount = 1;
     }
-    // ─────────────────────────────────────────────────────────────
 
-    req.io?.emit('new_issue', issue);
+    // Optionally emit socket event
+    req.io?.emit('new_issue', createdIssue);
 
-    const populated = await issue.populate('citizen', 'name email');
-    res.status(201).json(populated);
+    // Populate citizen info for response
+    const populated = await createdIssue.populate('citizen', 'name email');
+    res.status(201).json({
+      issue: populated,
+      meta: {
+        wasClustered,
+        clusterCount,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -160,13 +206,23 @@ export const getAllIssues = async (req, res) => {
       };
     }
 
-    const issues = await Issue.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .populate('citizen', 'name email phone');
+    const allForScoring = await Issue.find(filter)
+      .populate('citizen', 'name email phone')
+      .lean();
 
-    const total = await Issue.countDocuments(filter);
+    const now = Date.now();
+    const scored = allForScoring.map((issue) => {
+      const daysPending = Math.max(1, (now - new Date(issue.createdAt).getTime()) / 86400000);
+      const clusterSize = (issue.clusterMembers?.length || 0) + 1;
+      const priorityScore = ((issue.upvotes || 0) * 0.4 + clusterSize * 0.6) / daysPending;
+      return { ...issue, computedPriority: priorityScore };
+    });
+
+    scored.sort((a, b) => b.computedPriority - a.computedPriority);
+
+    const total = scored.length;
+    const issues = scored.slice((page - 1) * limit, page * limit);
+
     res.json({ issues, total, page: Number(page), pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -229,10 +285,16 @@ export const updateIssueStatus = async (req, res) => {
     if (remark) issue.governmentRemarks = remark;
     if (assignedDepartment) issue.assignedDepartment = assignedDepartment;
 
+    const auditHash = crypto
+      .createHash('sha256')
+      .update(`${issue._id}:${issue.status}:${remark || ''}:${Date.now()}`)
+      .digest('hex');
+
     issue.statusHistory.push({
       status: issue.status,
       remark: remark || '',
       updatedBy: req.user.id,
+      auditHash,
     });
 
     await issue.save();
@@ -346,17 +408,17 @@ export const getIssueCluster = async (req, res) => {
     // Citizens only see count (anonymous); government sees full list
     const reporters = isGovt
       ? allReporters.map((i) => ({
-          issueId: i._id,
-          name: i.citizen?.name,
-          email: i.citizen?.email,
-          phone: i.citizen?.phone,
-          reportedAt: i.createdAt,
-          title: i.title,
-          description: i.description,
-          imageUrl: i.imageUrl,
-          status: i.status,
-          location: i.location,
-        }))
+        issueId: i._id,
+        name: i.citizen?.name,
+        email: i.citizen?.email,
+        phone: i.citizen?.phone,
+        reportedAt: i.createdAt,
+        title: i.title,
+        description: i.description,
+        imageUrl: i.imageUrl,
+        status: i.status,
+        location: i.location,
+      }))
       : null;
 
     res.json({

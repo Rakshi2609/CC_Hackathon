@@ -1,7 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { LogIn, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -19,70 +20,82 @@ export default function Login() {
       login(res.data.token, res.data.user);
       navigate(res.data.user.role === 'government' ? '/gov-dashboard' : '/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || 'AUTH_FAILED');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
-      <div className="w-full max-w-sm relative z-10">
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
+      {/* Grid BG */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(37,99,235,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.03) 1px, transparent 1px)',
+        backgroundSize: '40px 40px'
+      }} />
+
+      <div className="w-full max-w-sm relative z-10 fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 text-green-700 font-black text-3xl">
-            <span className="bg-green-700 text-white px-3 py-1 rounded-lg">C+</span>
-            CivicPlus
+          <div className="inline-flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-[4px] flex items-center justify-center">
+              <span className="text-white text-sm font-black">C+</span>
+            </div>
+            <span className="text-xl font-semibold text-slate-100 tracking-tight">CivicPlus</span>
           </div>
-          <p className="mt-2 text-gray-500 text-sm">Smart Civic Issue Reporting Platform</p>
+          <p className="mono text-[10px] text-slate-700 mt-2 tracking-widest">SECURE_ACCESS_PORTAL Â· v2.0</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Sign In</h2>
+        <div className="glass rounded-[6px] p-7">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-1 h-4 bg-blue-600 rounded-full" />
+            <h2 className="text-sm font-semibold text-slate-200 tracking-wide">AUTHENTICATE</h2>
+          </div>
 
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-              {error}
+            <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-[4px] bg-red-500/10 border border-red-500/20">
+              <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
+              <p className="mono text-[11px] text-red-400">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="mono text-[10px] text-slate-600 tracking-widest block mb-1.5">EMAIL_ADDRESS</label>
               <input
                 type="email"
                 required
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-                placeholder="you@example.com"
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-[4px] text-sm mono border"
+                placeholder="user@domain.gov.in"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="mono text-[10px] text-slate-600 tracking-widest block mb-1.5">PASSWORD</label>
               <input
                 type="password"
                 required
                 value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-                placeholder="••••••••"
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-[4px] text-sm mono border"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-700 text-white py-2.5 rounded-xl font-semibold hover:bg-green-800 disabled:opacity-50 transition text-sm"
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white py-2.5 rounded-[4px] text-xs font-semibold transition-all"
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              <LogIn size={13} />
+              {loading ? 'AUTHENTICATINGâ€¦' : 'SIGN IN'}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-gray-500">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-green-700 font-semibold hover:underline">Register</Link>
+          <p className="mt-5 text-center mono text-[10px] text-slate-700">
+            NO ACCOUNT?{' '}
+            <Link to="/register" className="text-blue-500 hover:text-blue-400 transition-colors">REGISTER</Link>
           </p>
         </div>
       </div>

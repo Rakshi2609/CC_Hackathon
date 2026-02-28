@@ -28,6 +28,14 @@ const issueSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    photoUrl: {
+      type: String,
+      default: '',
+    },
+    resolutionPhotoUrl: {
+      type: String,
+      default: '',
+    },
     location: {
       type: {
         type: String,
@@ -35,12 +43,8 @@ const issueSchema = new mongoose.Schema(
         default: 'Point',
       },
       coordinates: {
-        type: [Number], // [longitude, latitude]
+        type: [Number],
         required: true,
-      },
-      address: {
-        type: String,
-        default: '',
       },
     },
     status: {
@@ -58,20 +62,13 @@ const issueSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    assignedDepartment: {
-      type: String,
-      default: '',
-    },
-    governmentRemarks: {
-      type: String,
-      default: '',
-    },
     statusHistory: [
       {
         status: String,
         remark: String,
         updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         updatedAt: { type: Date, default: Date.now },
+        auditHash: { type: String, default: '' },
       },
     ],
     upvotes: {
@@ -80,6 +77,11 @@ const issueSchema = new mongoose.Schema(
     },
     upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
+    // AI Vision Verification
+    aiVerified: {
+      type: Boolean,
+      default: false,
+    },
     // ── Clustering ──────────────────────────────────────────────────
     // The "primary" issue that represents this cluster.
     // Null means this issue is the primary (or standalone).
