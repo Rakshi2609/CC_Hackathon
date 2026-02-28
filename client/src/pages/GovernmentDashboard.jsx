@@ -4,41 +4,175 @@ import api from '../api/axios';
 import IssueMap from '../components/IssueMap';
 import IotAlertBanner from '../components/IotAlertBanner';
 import StatusBadge from '../components/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 import {
-  Flame, Timer, Activity, ChevronRight, TrendingUp, CheckCircle2,
-  AlertCircle, Clock, BarChart3, RefreshCw, Filter, Layers,
+  Flame, ChevronRight, ChevronLeft, TrendingUp, CheckCircle2,
+  AlertCircle, Clock, BarChart3, RefreshCw, Layers,
+  LayoutDashboard, FileText, Map, LogOut, Shield, ThumbsUp,
+  Filter, Users, Target, Activity,
 } from 'lucide-react';
 
+/* ── Category dot colours ─────────────────────────── */
 const CAT_DOT = {
-  Pothole: 'bg-red-500', Streetlight: 'bg-amber-400', Garbage: 'bg-orange-500',
-  Drainage: 'bg-blue-500', 'Water Leakage': 'bg-cyan-400', Others: 'bg-slate-500',
+  Pothole: 'bg-red-500',
+  Streetlight: 'bg-amber-400',
+  Garbage: 'bg-orange-500',
+  Drainage: 'bg-blue-500',
+  'Water Leakage': 'bg-cyan-500',
+  Others: 'bg-gray-400',
 };
 
-function StatCard({ icon: Icon, value, label, sub, color, border }) {
+/* ── Stat card ────────────────────────────────────── */
+function StatCard({ icon: Icon, value, label, sub, borderColor, iconClass }) {
   return (
-    <div className={`glass rounded-[6px] p-4 flex items-center gap-3 fade-in border-t-2 ${border}`}>
-      <div className={`w-9 h-9 rounded-[4px] flex items-center justify-center flex-shrink-0 ${color}`}>
+    <div className={`bg-white border border-gray-200 rounded-sm p-4 flex items-center gap-3 fade-in border-l-4 ${borderColor}`}>
+      <div className={`w-9 h-9 rounded-sm flex items-center justify-center flex-shrink-0 bg-gray-50 ${iconClass}`}>
         <Icon size={16} />
       </div>
       <div className="min-w-0">
-        <div className="mono text-2xl font-bold text-slate-100 leading-none">{value}</div>
-        <div className="mono text-[10px] text-slate-500 tracking-widest mt-1 uppercase">{label}</div>
-        {sub != null && <div className="mono text-[10px] text-slate-600 mt-0.5">{sub}</div>}
+        <div className="mono text-2xl font-bold text-gray-900 leading-none">{value}</div>
+        <div className="mono text-[10px] text-gray-400 tracking-widest mt-1 uppercase">{label}</div>
+        {sub != null && <div className="mono text-[10px] text-gray-400 mt-0.5">{sub}</div>}
       </div>
     </div>
   );
 }
 
+/* ── Sidebar nav item ─────────────────────────────── */
+function NavItem({ icon: Icon, label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors text-left ${active
+          ? 'bg-blue-600 text-white'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+    >
+      <Icon size={15} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ── Reports table (reused by Overview + Reports) ─ */
+function ReportsTable({ issues, title, total, statusFilter, catFilter, CATS, onStatusFilter, onCatFilter, page, totalPages, onPage, navigate, showFilters, viewAllLabel, onViewAll }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Layers size={12} className="text-gray-400" />
+          <span className="mono text-[9px] text-gray-500 tracking-widest uppercase">{title}</span>
+          <span className="mono text-[9px] text-gray-400">({total})</span>
+        </div>
+        {showFilters && (
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 text-gray-400"><Filter size={11} /></div>
+            <select value={statusFilter} onChange={e => onStatusFilter(e.target.value)}
+              className="px-2.5 py-1.5 rounded-sm mono text-[10px] text-gray-600 tracking-wide">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <select value={catFilter} onChange={e => onCatFilter(e.target.value)}
+              className="px-2.5 py-1.5 rounded-sm mono text-[10px] text-gray-600 tracking-wide">
+              <option value="">All Categories</option>
+              {CATS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
+        {viewAllLabel && (
+          <button onClick={onViewAll} className="ml-auto mono text-[10px] text-blue-600 hover:text-blue-800 transition-colors">
+            {viewAllLabel}
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              {['#', 'Title', 'Category', 'Status', 'Upvotes', 'Citizen', 'Reported'].map(h => (
+                <th key={h} className="px-4 py-2.5 text-left mono text-[9px] text-gray-400 tracking-widest font-semibold uppercase">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {issues.map((issue, i) => (
+              <tr key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
+                className={`cursor-pointer transition-colors hover:bg-blue-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                <td className="px-4 py-3 mono text-[10px] text-gray-400">{String(i + 1).padStart(2, '0')}</td>
+                <td className="px-4 py-3"><p className="text-xs text-gray-800 font-medium line-clamp-1 max-w-[240px]">{issue.title}</p></td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center gap-1.5 mono text-[9px] text-gray-600">
+                    <span className={`w-2 h-2 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
+                    {issue.category}
+                  </span>
+                </td>
+                <td className="px-4 py-3"><StatusBadge status={issue.status} /></td>
+                <td className="px-4 py-3 mono text-[11px] text-gray-500">{issue.upvotes || 0}</td>
+                <td className="px-4 py-3 text-xs text-gray-500">{issue.citizen?.name || '—'}</td>
+                <td className="px-4 py-3 mono text-[10px] text-gray-400">{new Date(issue.createdAt).toLocaleDateString('en-IN')}</td>
+              </tr>
+            ))}
+            {issues.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-10 text-center mono text-[11px] text-gray-400">NO RECORDS FOUND</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {showFilters && totalPages > 1 && (
+        <div className="px-5 py-3 border-t border-gray-200 flex items-center justify-between">
+          <span className="mono text-[10px] text-gray-400">
+            Page {page} of {totalPages} · {total} records
+          </span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => onPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="p-1.5 rounded-sm border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 transition-colors">
+              <ChevronLeft size={13} className="text-gray-500" />
+            </button>
+            {[...Array(Math.min(totalPages, 7))].map((_, i) => {
+              const pg = i + 1;
+              return (
+                <button key={pg} onClick={() => onPage(pg)}
+                  className={`mono w-7 h-7 rounded-sm text-[11px] font-medium transition-colors border ${page === pg ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}>
+                  {pg}
+                </button>
+              );
+            })}
+            {totalPages > 7 && <span className="mono text-[11px] text-gray-400 px-1">…</span>}
+            <button onClick={() => onPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="p-1.5 rounded-sm border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 transition-colors">
+              <ChevronRight size={13} className="text-gray-500" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════ */
 export default function GovernmentDashboard() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
   const [clusters, setClusters] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, inProgress: 0, resolved: 0, categoryStats: [] });
   const [mapIssues, setMapIssues] = useState([]);
   const [allIssues, setAllIssues] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
+  const [reportPage, setReportPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeNav, setActiveNav] = useState('overview');
   const [now, setNow] = useState(new Date());
+
+  const ITEMS_PER_PAGE = 15;
+  const CATS = ['Pothole', 'Streetlight', 'Garbage', 'Drainage', 'Water Leakage', 'Others'];
 
   const fetchAll = useCallback(async () => {
     setRefreshing(true);
@@ -47,11 +181,17 @@ export default function GovernmentDashboard() {
         api.get('/issues/clusters'),
         api.get('/issues/map'),
         api.get('/issues/stats'),
-        api.get('/issues?limit=50'),
+        api.get('/issues?limit=200'),
       ]);
       setClusters(cl.data.clusters || []);
       setMapIssues(map.data || []);
-      setStats({ total: st.data.total || 0, pending: st.data.pending || 0, inProgress: st.data.inProgress || 0, resolved: st.data.resolved || 0, categoryStats: st.data.categoryStats || [] });
+      setStats({
+        total: st.data.total || 0,
+        pending: st.data.pending || 0,
+        inProgress: st.data.inProgress || 0,
+        resolved: st.data.resolved || 0,
+        categoryStats: st.data.categoryStats || [],
+      });
       setAllIssues(al.data.issues || []);
     } finally {
       setRefreshing(false);
@@ -59,204 +199,444 @@ export default function GovernmentDashboard() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Reset page when filters change
+  useEffect(() => { setReportPage(1); }, [statusFilter, catFilter]);
 
   const sortedClusters = [...clusters].sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
   const filteredIssues = allIssues.filter(i =>
     (!statusFilter || i.status === statusFilter) &&
     (!catFilter || i.category === catFilter)
   );
+  const totalPages = Math.max(1, Math.ceil(filteredIssues.length / ITEMS_PER_PAGE));
+  const pagedIssues = filteredIssues.slice((reportPage - 1) * ITEMS_PER_PAGE, reportPage * ITEMS_PER_PAGE);
+  const resolutionRate = stats.total ? Math.round((stats.resolved / stats.total) * 100) : 0;
+  const topUpvoted = [...allIssues].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 5);
+  const recentResolved = allIssues.filter(i => i.status === 'resolved').slice(0, 5);
 
-  const CATS = ['Pothole', 'Streetlight', 'Garbage', 'Drainage', 'Water Leakage', 'Others'];
+  const NAV_LABELS = { overview: 'Overview', reports: 'All Reports', map: 'Map View', analytics: 'Analytics' };
 
-  return (
-    <div className="min-h-screen bg-[#020617] flex flex-col">
+  /* ── Overview ─────────────────────────────────── */
+  const OverviewView = (
+    <>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <StatCard icon={BarChart3} value={stats.total} label="Total Reports" sub={`${sortedClusters.length} hotspots`} borderColor="border-l-gray-400" iconClass="text-gray-500" />
+        <StatCard icon={AlertCircle} value={stats.pending} label="Pending" sub="awaiting action" borderColor="border-l-red-500" iconClass="text-red-600" />
+        <StatCard icon={Clock} value={stats.inProgress} label="In Progress" sub="being resolved" borderColor="border-l-amber-400" iconClass="text-amber-600" />
+        <StatCard icon={CheckCircle2} value={stats.resolved} label="Resolved" sub={`${resolutionRate}% resolution rate`} borderColor="border-l-green-600" iconClass="text-green-700" />
+      </div>
 
-      {/* Top bar */}
-      <div className="sticky top-0 z-30 border-b border-white/[0.06]" style={{ background: 'rgba(2,6,23,0.92)', backdropFilter: 'blur(20px)' }}>
-        <div className="max-w-[1600px] mx-auto px-5 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 blink" />
-            <div>
-              <h1 className="text-sm font-semibold text-slate-100 tracking-tight">Command Center</h1>
-              <p className="mono text-[10px] text-slate-600 tracking-widest">
-                GOV_DASHBOARD &nbsp;·&nbsp; {now.toLocaleDateString('en-IN')} &nbsp;·&nbsp;
-                <span className="mono text-[10px] text-slate-500">{now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-              </p>
+      {/* War room: queue + map */}
+      <div className="flex gap-4" style={{ height: '56vh', minHeight: 460 }}>
+        {/* Priority queue + category */}
+        <div className="w-72 flex-shrink-0 flex flex-col gap-3">
+          {/* Category breakdown */}
+          <div className="bg-white border border-gray-200 rounded-sm p-4">
+            <p className="mono text-[9px] text-gray-400 tracking-widest mb-3 uppercase">Category Breakdown</p>
+            <div className="space-y-2">
+              {stats.categoryStats.slice(0, 6).map(cs => (
+                <div key={cs._id} className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CAT_DOT[cs._id] || 'bg-gray-400'}`} />
+                  <span className="text-xs text-gray-700 flex-1 truncate">{cs._id}</span>
+                  <span className="mono text-[10px] text-gray-400">{cs.count}</span>
+                  <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${CAT_DOT[cs._id] || 'bg-gray-400'}`}
+                      style={{ width: `${Math.round((cs.count / (stats.total || 1)) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+              {stats.categoryStats.length === 0 && <p className="mono text-[11px] text-gray-400">NO DATA</p>}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Priority queue */}
+          <div className="bg-white border border-gray-200 rounded-sm flex flex-col overflow-hidden flex-1">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2 flex-shrink-0">
+              <TrendingUp size={12} className="text-amber-500" />
+              <span className="mono text-[9px] text-gray-500 tracking-widest uppercase">Priority Queue</span>
+              <span className="ml-auto mono text-[9px] text-gray-400">{sortedClusters.length} clusters</span>
+            </div>
+            <ul className="flex-1 overflow-y-auto divide-y divide-gray-100">
+              {sortedClusters.slice(0, 20).map((cluster, idx) => {
+                const urgent = (cluster.priorityScore || 0) > 5;
+                const count = (cluster.clusterMembers?.length || 0) + 1;
+                return (
+                  <li key={cluster._id} onClick={() => navigate(`/issues/${cluster._id}`)}
+                    className={`px-4 py-3 cursor-pointer transition-colors fade-in group ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 ${urgent ? 'border-l-2 border-l-amber-400' : ''}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2 group-hover:text-blue-700">{cluster.title}</p>
+                      <ChevronRight size={11} className="text-gray-300 flex-shrink-0 mt-0.5 group-hover:text-blue-400" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="mono text-[9px] text-gray-400">#{String(idx + 1).padStart(2, '0')}</span>
+                      <span className="mono text-[9px] text-gray-400">{cluster.category}</span>
+                      {urgent && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm bg-amber-50 border border-amber-200 mono text-[8px] text-amber-700 font-semibold tracking-wider">
+                          <Flame size={7} /> URGENT
+                        </span>
+                      )}
+                      <span className="ml-auto mono text-[9px] text-gray-400">{count} rpt</span>
+                    </div>
+                  </li>
+                );
+              })}
+              {sortedClusters.length === 0 && (
+                <div className="flex items-center justify-center h-24">
+                  <p className="mono text-[11px] text-gray-400">NO HOTSPOTS DETECTED</p>
+                </div>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        {/* Map */}
+        <div className="flex-1 bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
+          <IssueMap issues={mapIssues} title="LIVE CIVIC INTELLIGENCE MAP" />
+        </div>
+      </div>
+
+      {/* Recent issues preview */}
+      <ReportsTable
+        issues={allIssues.slice(0, 10)}
+        title="Recent Reports"
+        total={allIssues.length}
+        statusFilter="" catFilter="" CATS={CATS}
+        onStatusFilter={() => { }} onCatFilter={() => { }}
+        page={1} totalPages={1} onPage={() => { }}
+        navigate={navigate}
+        showFilters={false}
+        viewAllLabel="View All Reports →"
+        onViewAll={() => setActiveNav('reports')}
+      />
+    </>
+  );
+
+  /* ── Reports ──────────────────────────────────── */
+  const ReportsView = (
+    <ReportsTable
+      issues={pagedIssues}
+      title="All Reports"
+      total={filteredIssues.length}
+      statusFilter={statusFilter} catFilter={catFilter} CATS={CATS}
+      onStatusFilter={setStatusFilter} onCatFilter={setCatFilter}
+      page={reportPage} totalPages={totalPages} onPage={setReportPage}
+      navigate={navigate}
+      showFilters={true}
+    />
+  );
+
+  /* ── Map View ─────────────────────────────────── */
+  const MapView = (
+    <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm" style={{ height: 'calc(100vh - 120px)' }}>
+      <IssueMap issues={mapIssues} title="FULL CITY ISSUE MAP" />
+    </div>
+  );
+
+  /* ── Analytics ────────────────────────────────── */
+  const AnalyticsView = (
+    <div className="space-y-5">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <StatCard icon={Target} value={`${resolutionRate}%`} label="Resolution Rate" sub={`${stats.resolved} of ${stats.total} resolved`} borderColor="border-l-green-600" iconClass="text-green-700" />
+        <StatCard icon={Activity} value={stats.inProgress} label="Active Work" sub="currently in-progress" borderColor="border-l-amber-400" iconClass="text-amber-600" />
+        <StatCard icon={Users} value={sortedClusters.length} label="Hotspot Clusters" sub="geo-clustered zones" borderColor="border-l-blue-500" iconClass="text-blue-600" />
+        <StatCard icon={ThumbsUp} value={allIssues.reduce((s, i) => s + (i.upvotes || 0), 0)} label="Total Upvotes" sub="community engagement" borderColor="border-l-purple-500" iconClass="text-purple-600" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+
+        {/* Category bar chart */}
+        <div className="bg-white border border-gray-200 rounded-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={14} className="text-blue-600" />
+            <span className="text-sm font-semibold text-gray-900">Issues by Category</span>
+            <span className="ml-auto mono text-[10px] text-gray-400">{stats.total} total</span>
+          </div>
+          <div className="space-y-3">
+            {(stats.categoryStats.length > 0 ? stats.categoryStats : CATS.map(c => ({ _id: c, count: 0 }))).map(cs => {
+              const pct = stats.total ? Math.round((cs.count / stats.total) * 100) : 0;
+              return (
+                <div key={cs._id} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${CAT_DOT[cs._id] || 'bg-gray-400'}`} />
+                      <span className="text-xs text-gray-700 font-medium">{cs._id}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="mono text-[10px] text-gray-500">{cs.count} issues</span>
+                      <span className="mono text-[10px] text-gray-400 w-8 text-right">{pct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${CAT_DOT[cs._id] || 'bg-gray-400'}`}
+                      style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status breakdown */}
+        <div className="bg-white border border-gray-200 rounded-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={14} className="text-blue-600" />
+            <span className="text-sm font-semibold text-gray-900">Status Distribution</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: 'Pending', value: stats.pending, pct: stats.total ? Math.round((stats.pending / stats.total) * 100) : 0, color: 'text-red-600', bg: 'bg-red-50', bar: 'bg-red-500' },
+              { label: 'In Progress', value: stats.inProgress, pct: stats.total ? Math.round((stats.inProgress / stats.total) * 100) : 0, color: 'text-amber-700', bg: 'bg-amber-50', bar: 'bg-amber-400' },
+              { label: 'Resolved', value: stats.resolved, pct: stats.total ? Math.round((stats.resolved / stats.total) * 100) : 0, color: 'text-green-700', bg: 'bg-green-50', bar: 'bg-green-600' },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} border border-gray-200 rounded-sm p-4 text-center`}>
+                <p className={`mono text-3xl font-bold ${s.color} leading-none`}>{s.pct}%</p>
+                <p className="text-[10px] text-gray-500 mt-1 font-medium">{s.label}</p>
+                <p className="mono text-[10px] text-gray-400">{s.value} issues</p>
+              </div>
+            ))}
+          </div>
+          {/* Stacked bar */}
+          <p className="mono text-[9px] text-gray-400 tracking-widest mb-2 uppercase">Overall Progress</p>
+          <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
+            {stats.total > 0 && <>
+              <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${Math.round((stats.pending / stats.total) * 100)}%` }} title="Pending" />
+              <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${Math.round((stats.inProgress / stats.total) * 100)}%` }} title="In Progress" />
+              <div className="h-full bg-green-600 transition-all duration-500" style={{ width: `${Math.round((stats.resolved / stats.total) * 100)}%` }} title="Resolved" />
+            </>}
+          </div>
+          <div className="flex gap-4 mt-2">
+            {[['bg-red-500', 'Pending'], ['bg-amber-400', 'In Progress'], ['bg-green-600', 'Resolved']].map(([c, l]) => (
+              <span key={l} className="flex items-center gap-1 mono text-[9px] text-gray-400">
+                <span className={`w-2 h-2 rounded-full ${c}`} />{l}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Hotspot leaderboard */}
+        <div className="bg-white border border-gray-200 rounded-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Flame size={14} className="text-amber-500" />
+            <span className="text-sm font-semibold text-gray-900">Top Hotspot Clusters</span>
+            <span className="ml-auto mono text-[10px] text-gray-400">{sortedClusters.length} total</span>
+          </div>
+          {sortedClusters.length === 0 ? (
+            <p className="mono text-[11px] text-gray-400 py-6 text-center">NO HOTSPOT DATA</p>
+          ) : (
+            <div className="space-y-2">
+              {sortedClusters.slice(0, 6).map((c, i) => {
+                const count = (c.clusterMembers?.length || 0) + 1;
+                const score = c.priorityScore || 0;
+                const maxScore = sortedClusters[0]?.priorityScore || 1;
+                return (
+                  <div key={c._id} onClick={() => navigate(`/issues/${c._id}`)}
+                    className="flex items-center gap-3 py-2 px-3 rounded-sm hover:bg-gray-50 cursor-pointer group border border-transparent hover:border-gray-200 transition-all">
+                    <span className={`mono text-[10px] font-bold w-5 text-center flex-shrink-0 ${i === 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate group-hover:text-blue-700">{c.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="mono text-[9px] text-gray-400">{c.category}</span>
+                        <span className="mono text-[9px] text-gray-400">{count} reports</span>
+                        <StatusBadge status={c.status} />
+                      </div>
+                    </div>
+                    <div className="w-20 flex flex-col items-end gap-1">
+                      <span className="mono text-[9px] text-gray-500 font-semibold">Score: {score.toFixed(1)}</span>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.round((score / maxScore) * 100)}%` }} />
+                      </div>
+                    </div>
+                    <ChevronRight size={12} className="text-gray-300 group-hover:text-blue-400 flex-shrink-0" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Most upvoted issues */}
+        <div className="bg-white border border-gray-200 rounded-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ThumbsUp size={14} className="text-purple-600" />
+            <span className="text-sm font-semibold text-gray-900">Most Upvoted Issues</span>
+            <span className="ml-auto mono text-[10px] text-gray-400">community priority</span>
+          </div>
+          {topUpvoted.length === 0 ? (
+            <p className="mono text-[11px] text-gray-400 py-6 text-center">NO DATA</p>
+          ) : (
+            <div className="space-y-2">
+              {topUpvoted.map((issue, i) => (
+                <div key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
+                  className="flex items-center gap-3 py-2 px-3 rounded-sm hover:bg-gray-50 cursor-pointer group border border-transparent hover:border-gray-200 transition-all">
+                  <span className={`mono text-[10px] font-bold w-5 text-center flex-shrink-0 ${i === 0 ? 'text-purple-600' : 'text-gray-400'}`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate group-hover:text-blue-700">{issue.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOT[issue.category] || 'bg-gray-400'}`} />
+                      <span className="mono text-[9px] text-gray-400">{issue.category}</span>
+                      <StatusBadge status={issue.status} />
+                    </div>
+                  </div>
+                  <span className="flex items-center gap-1 mono text-[10px] text-purple-600 font-semibold flex-shrink-0">
+                    <ThumbsUp size={10} /> {issue.upvotes || 0}
+                  </span>
+                  <ChevronRight size={12} className="text-gray-300 group-hover:text-blue-400 flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recently resolved */}
+      <div className="bg-white border border-gray-200 rounded-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CheckCircle2 size={14} className="text-green-600" />
+          <span className="text-sm font-semibold text-gray-900">Recently Resolved</span>
+          <span className="ml-auto mono text-[10px] text-gray-400">{stats.resolved} total resolved</span>
+        </div>
+        {recentResolved.length === 0 ? (
+          <p className="mono text-[11px] text-gray-400 py-4 text-center">NO RESOLVED ISSUES YET</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {recentResolved.map(issue => (
+              <div key={issue._id} onClick={() => navigate(`/issues/${issue._id}`)}
+                className="flex items-center gap-4 py-3 hover:bg-gray-50 cursor-pointer group px-2 rounded-sm transition-colors">
+                <div className="w-6 h-6 rounded-sm bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 size={12} className="text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800 truncate group-hover:text-blue-700">{issue.title}</p>
+                  <p className="mono text-[9px] text-gray-400 mt-0.5">{issue.category} · {issue.citizen?.name || '—'}</p>
+                </div>
+                <span className="mono text-[9px] text-gray-400 flex-shrink-0">
+                  {new Date(issue.createdAt).toLocaleDateString('en-IN')}
+                </span>
+                <ChevronRight size={12} className="text-gray-300 group-hover:text-blue-400 flex-shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const views = { overview: OverviewView, reports: ReportsView, map: MapView, analytics: AnalyticsView };
+
+  return (
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+
+      {/* ── Fixed left sidebar ──────────────────────── */}
+      <aside className="w-56 flex-shrink-0 h-screen flex flex-col bg-gray-50 border-r border-gray-200">
+        <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-2">
+          <div className="w-7 h-7 bg-blue-600 rounded-sm flex items-center justify-center">
+            <Shield size={14} className="text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900 leading-none">CivicPlus</p>
+            <p className="mono text-[9px] text-gray-400 tracking-widest mt-0.5">GOV PORTAL</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <p className="mono text-[9px] text-gray-400 tracking-widest px-3 pb-2 uppercase">Navigation</p>
+          <NavItem icon={LayoutDashboard} label="Overview" active={activeNav === 'overview'} onClick={() => setActiveNav('overview')} />
+          <NavItem icon={FileText} label="Reports" active={activeNav === 'reports'} onClick={() => setActiveNav('reports')} />
+          <NavItem icon={Map} label="Map View" active={activeNav === 'map'} onClick={() => setActiveNav('map')} />
+          <NavItem icon={TrendingUp} label="Analytics" active={activeNav === 'analytics'} onClick={() => setActiveNav('analytics')} />
+        </nav>
+
+        {/* Sidebar stats summary */}
+        <div className="px-4 py-3 border-t border-gray-200 space-y-1.5">
+          <p className="mono text-[9px] text-gray-400 tracking-widest uppercase mb-2">At a Glance</p>
+          {[
+            { label: 'Total', val: stats.total, dot: 'bg-gray-400' },
+            { label: 'Pending', val: stats.pending, dot: 'bg-red-500' },
+            { label: 'In Progress', val: stats.inProgress, dot: 'bg-amber-400' },
+            { label: 'Resolved', val: stats.resolved, dot: 'bg-green-600' },
+          ].map(s => (
+            <div key={s.label} className="flex items-center justify-between px-1">
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />{s.label}
+              </span>
+              <span className="mono text-[11px] font-semibold text-gray-800">{s.val}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-3 py-3 border-t border-gray-200 space-y-1">
+          {user && (
+            <div className="px-3 py-2 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-sm bg-blue-100 flex items-center justify-center">
+                <Shield size={11} className="text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-800 truncate">{user.name}</p>
+                <p className="mono text-[9px] text-gray-400 tracking-wide uppercase">{user.role}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => { logout?.(); navigate('/login'); }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-sm text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          >
+            <LogOut size={14} />
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main content ────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] text-gray-400 mono mb-0.5">
+              <span>Command Center</span>
+              <ChevronRight size={10} />
+              <span className="text-gray-700 font-semibold">{NAV_LABELS[activeNav]}</span>
+            </div>
+            <p className="mono text-[10px] text-gray-400 tracking-widest">
+              {now.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+              &nbsp;·&nbsp;
+              {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
             <IotAlertBanner />
             <button
-              onClick={fetchAll}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-[4px] mono text-[10px] text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+              onClick={fetchAll} disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-sm mono text-[10px] text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors disabled:opacity-40"
             >
               <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
               REFRESH
             </button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="max-w-[1600px] mx-auto w-full px-5 pt-5 pb-10 flex flex-col gap-5">
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard icon={BarChart3}    value={stats.total}      label="Total Reports"   sub={`${sortedClusters.length} hotspots`} color="bg-slate-500/10 text-slate-400"  border="border-slate-500/30" />
-          <StatCard icon={AlertCircle}  value={stats.pending}    label="Pending"         sub="awaiting action"                     color="bg-red-500/10 text-red-400"     border="border-red-500/40" />
-          <StatCard icon={Clock}        value={stats.inProgress} label="In Progress"     sub="being resolved"                      color="bg-amber-500/10 text-amber-400" border="border-amber-500/40" />
-          <StatCard icon={CheckCircle2} value={stats.resolved}   label="Resolved"        sub={stats.total ? `${Math.round((stats.resolved/stats.total)*100)}% rate` : '—'} color="bg-emerald-500/10 text-emerald-400" border="border-emerald-500/40" />
-        </div>
-
-        {/* Main body */}
-        <div className="flex gap-4" style={{ height: '60vh', minHeight: 480 }}>
-
-          {/* Left sidebar */}
-          <div className="w-80 flex-shrink-0 flex flex-col gap-3">
-
-            {/* Category breakdown */}
-            <div className="glass rounded-[6px] p-4">
-              <p className="mono text-[10px] text-slate-600 tracking-widest mb-3">CATEGORY_BREAKDOWN</p>
-              <div className="space-y-2">
-                {stats.categoryStats.slice(0, 5).map(cs => (
-                  <div key={cs._id} className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${CAT_DOT[cs._id] || 'bg-slate-500'}`} />
-                    <span className="text-[12px] text-slate-300 flex-1 truncate">{cs._id}</span>
-                    <span className="mono text-[10px] text-slate-500">{cs.count}</span>
-                    <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${CAT_DOT[cs._id] || 'bg-slate-500'}`}
-                        style={{ width: `${Math.round((cs.count / (stats.total || 1)) * 100)}%`, opacity: 0.7 }}
-                      />
-                    </div>
-                  </div>
-                ))}
-                {stats.categoryStats.length === 0 && <p className="mono text-[11px] text-slate-700">NO_DATA</p>}
-              </div>
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {refreshing && allIssues.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => <div key={i} className="skeleton rounded-sm h-24" />)}
             </div>
-
-            {/* Priority queue */}
-            <div className="glass rounded-[6px] flex flex-col overflow-hidden flex-1">
-              <div className="px-4 py-3 border-b border-white/[0.07] flex items-center gap-2 flex-shrink-0">
-                <TrendingUp size={12} className="text-amber-400" />
-                <span className="mono text-[10px] text-slate-400 tracking-widest">PRIORITY_QUEUE</span>
-                <span className="ml-auto mono text-[10px] text-slate-700">{sortedClusters.length} clusters</span>
-              </div>
-              <ul className="flex-1 overflow-y-auto divide-y divide-white/[0.04]">
-                {sortedClusters.slice(0, 15).map((cluster, idx) => {
-                  const urgent = (cluster.priorityScore || 0) > 5;
-                  const count = (cluster.clusterMembers?.length || 0) + 1;
-                  return (
-                    <li
-                      key={cluster._id}
-                      onClick={() => navigate(`/issues/${cluster._id}`)}
-                      className={`px-4 py-3 cursor-pointer hover:bg-white/[0.04] transition-colors fade-in ${
-                        urgent ? 'border-l-2 border-amber-500' : 'border-l-2 border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <p className="text-[12px] font-medium text-slate-200 leading-snug line-clamp-2">{cluster.title}</p>
-                        <ChevronRight size={11} className="text-slate-700 flex-shrink-0 mt-0.5" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="mono text-[9px] text-slate-600">#{String(idx + 1).padStart(2, '0')}</span>
-                        <span className="mono text-[9px] text-slate-600">{cluster.category}</span>
-                        {urgent && (
-                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-[2px] bg-amber-500/15 border border-amber-500/25 mono text-[8px] text-amber-400 font-semibold tracking-wider">
-                            <Flame size={7} /> URGENT
-                          </span>
-                        )}
-                        <span className="ml-auto mono text-[9px] text-slate-600">{count} rpt</span>
-                      </div>
-                    </li>
-                  );
-                })}
-                {sortedClusters.length === 0 && (
-                  <div className="flex items-center justify-center h-24">
-                    <p className="mono text-[11px] text-slate-700">NO_HOTSPOTS_DETECTED</p>
-                  </div>
-                )}
-              </ul>
-            </div>
-          </div>
-
-          {/* Map */}
-          <div className="flex-1 glass rounded-[6px] overflow-hidden">
-            <IssueMap issues={mapIssues} title="Live Civic Intelligence Map" />
-          </div>
-        </div>
-
-        {/* Issues table */}
-        <div className="glass rounded-[6px] overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/[0.07] flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Layers size={12} className="text-slate-500" />
-              <span className="mono text-[10px] text-slate-400 tracking-widest">ALL_REPORTS</span>
-              <span className="mono text-[10px] text-slate-700">({filteredIssues.length})</span>
-            </div>
-            <div className="ml-auto flex items-center gap-2 flex-wrap">
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[4px] mono text-[10px] border bg-transparent text-slate-400 tracking-wide"
-              >
-                <option value="">ALL STATUS</option>
-                <option value="pending">PENDING</option>
-                <option value="in-progress">IN PROGRESS</option>
-                <option value="resolved">RESOLVED</option>
-              </select>
-              <select
-                value={catFilter}
-                onChange={e => setCatFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-[4px] mono text-[10px] border bg-transparent text-slate-400 tracking-wide"
-              >
-                <option value="">ALL CATEGORIES</option>
-                {CATS.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  {['#', 'TITLE', 'CATEGORY', 'STATUS', 'UPVOTES', 'CITIZEN', 'REPORTED'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left mono text-[9px] text-slate-600 tracking-widest font-normal">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredIssues.slice(0, 20).map((issue, i) => (
-                  <tr
-                    key={issue._id}
-                    onClick={() => navigate(`/issues/${issue._id}`)}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3 mono text-[10px] text-slate-600">{String(i + 1).padStart(2, '0')}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-[12px] text-slate-200 font-medium line-clamp-1 max-w-[240px]">{issue.title}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 mono text-[9px] px-1.5 py-0.5 rounded-[2px] font-semibold tracking-wider`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOT[issue.category] || 'bg-slate-500'}`} />
-                        {issue.category?.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><StatusBadge status={issue.status} /></td>
-                    <td className="px-4 py-3 mono text-[11px] text-slate-500">{issue.upvotes || 0}</td>
-                    <td className="px-4 py-3 text-[11px] text-slate-500">{issue.citizen?.name || '—'}</td>
-                    <td className="px-4 py-3 mono text-[10px] text-slate-600">{new Date(issue.createdAt).toLocaleDateString('en-IN')}</td>
-                  </tr>
-                ))}
-                {filteredIssues.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center mono text-[11px] text-slate-700">NO_RECORDS_FOUND</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          ) : (
+            views[activeNav]
+          )}
+        </main>
       </div>
     </div>
   );
 }
+
+

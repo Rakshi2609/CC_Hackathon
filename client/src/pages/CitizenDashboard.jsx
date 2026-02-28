@@ -57,29 +57,29 @@ export default function CitizenDashboard() {
   const resolved = issues.filter(i => i.status === 'resolved').length;
 
   return (
-    <div className="min-h-screen bg-[#020617]">
+    <div className="min-h-screen bg-gray-100">
       <GeofenceBanner />
 
       <div className="max-w-7xl mx-auto px-4 pt-5 pb-16">
 
         {/* Toast */}
         {toast && (
-          <div className="mb-4 px-4 py-3 glass rounded-[4px] border-l-2 border-emerald-500 text-emerald-400 text-xs font-medium mono fade-in">
-            SYS: {toast}
+          <div className="mb-4 px-4 py-3 bg-white border border-gray-200 border-l-4 border-l-green-500 rounded-sm text-green-700 text-xs font-medium mono fade-in">
+            {toast}
           </div>
         )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-base font-semibold text-slate-100">My Reports</h1>
-            <p className="mono text-[11px] text-slate-600 mt-0.5">
-              USER:{user?.name?.toUpperCase().replace(' ', '_')} &middot; CITIZEN_PORTAL
+            <h1 className="text-base font-semibold text-gray-900">My Reports</h1>
+            <p className="mono text-[11px] text-gray-500 mt-0.5">
+              {user?.name} &middot; Citizen Portal
             </p>
           </div>
           <Link
             to="/report"
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-[4px] text-xs font-semibold transition-all"
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-sm text-xs font-semibold transition-colors"
           >
             + New Report
           </Link>
@@ -88,18 +88,18 @@ export default function CitizenDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
-            { label: 'TOTAL', value: total, icon: BarChart3, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-            { label: 'PENDING', value: pending, icon: AlertCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
-            { label: 'IN PROGRESS', value: inProgress, icon: Clock, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-            { label: 'RESOLVED', value: resolved, icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'Total', value: total, icon: BarChart3, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-l-blue-500' },
+            { label: 'Pending', value: pending, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-l-red-500' },
+            { label: 'In Progress', value: inProgress, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-l-amber-400' },
+            { label: 'Resolved', value: resolved, icon: CheckCircle2, color: 'text-green-700', bg: 'bg-green-50', border: 'border-l-green-600' },
           ].map(s => (
-            <div key={s.label} className="glass rounded-[6px] p-4 flex items-center gap-3 fade-in">
-              <div className={`w-8 h-8 rounded-[3px] flex items-center justify-center flex-shrink-0 ${s.bg} ${s.color}`}>
+            <div key={s.label} className={`bg-white border border-gray-200 border-l-4 ${s.border} rounded-sm p-4 flex items-center gap-3 fade-in`}>
+              <div className={`w-8 h-8 rounded-sm flex items-center justify-center flex-shrink-0 ${s.bg} ${s.color}`}>
                 <s.icon size={15} />
               </div>
               <div>
                 <p className={`mono text-lg font-bold leading-none ${s.color}`}>{s.value}</p>
-                <p className="text-[10px] text-slate-600 mt-0.5 tracking-widest">{s.label}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 tracking-widest">{s.label}</p>
               </div>
             </div>
           ))}
@@ -109,18 +109,18 @@ export default function CitizenDashboard() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <MapPin size={12} className="text-slate-500" />
-              <span className="text-xs font-medium text-slate-400">City Issues Map</span>
+              <MapPin size={12} className="text-gray-400" />
+              <span className="text-xs font-medium text-gray-600">City Issues Map</span>
             </div>
             <button
               onClick={() => setShowMap(v => !v)}
-              className="mono text-[10px] text-slate-600 hover:text-slate-400 transition-colors tracking-widest"
+              className="mono text-[10px] text-gray-400 hover:text-gray-700 transition-colors tracking-widest"
             >
-              {showMap ? 'HIDE_MAP' : 'SHOW_MAP'}
+              {showMap ? 'HIDE MAP' : 'SHOW MAP'}
             </button>
           </div>
           {showMap && (
-            <div className="rounded-[6px] overflow-hidden border border-white/[0.07]">
+            <div className="rounded-sm overflow-hidden border border-gray-200 shadow-sm">
               <IssueMap issues={mapIssues} title="All City Issues" readOnly />
             </div>
           )}
@@ -128,9 +128,9 @@ export default function CitizenDashboard() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 mb-5">
-          <div className="flex items-center gap-2 px-2 py-1.5 glass rounded-[4px]">
-            <Filter size={11} className="text-slate-600" />
-            <span className="mono text-[10px] text-slate-600 tracking-widest">FILTER</span>
+          <div className="flex items-center gap-2 px-2 py-1.5 bg-white border border-gray-200 rounded-sm">
+            <Filter size={11} className="text-gray-400" />
+            <span className="mono text-[10px] text-gray-500 tracking-widest">FILTER</span>
           </div>
           <select
             value={statusFilter}
@@ -161,13 +161,13 @@ export default function CitizenDashboard() {
           </div>
         ) : issues.length === 0 ? (
           <div className="text-center py-24">
-            <div className="w-12 h-12 border border-dashed border-slate-700 rounded-[4px] flex items-center justify-center mx-auto mb-4">
-              <MapPin size={20} className="text-slate-700" />
+            <div className="w-12 h-12 border border-dashed border-gray-300 rounded-sm flex items-center justify-center mx-auto mb-4">
+              <MapPin size={20} className="text-gray-300" />
             </div>
-            <p className="mono text-xs text-slate-700 tracking-widest">NO_RECORDS_FOUND</p>
+            <p className="mono text-xs text-gray-400 tracking-widest">NO RECORDS FOUND</p>
             {!statusFilter && !categoryFilter && (
-              <Link to="/report" className="inline-block mt-4 text-xs text-blue-500 hover:text-blue-400 transition-colors mono tracking-wide">
-                SUBMIT_FIRST_REPORT
+              <Link to="/report" className="inline-block mt-4 text-xs text-blue-600 hover:text-blue-800 transition-colors mono tracking-wide">
+                SUBMIT FIRST REPORT
               </Link>
             )}
           </div>
@@ -182,17 +182,17 @@ export default function CitizenDashboard() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-1.5 rounded-[3px] glass hover:bg-white/10 transition-all disabled:opacity-30"
+                  className="p-1.5 rounded-sm bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-30"
                 >
-                  <ChevronLeft size={14} className="text-slate-400" />
+                  <ChevronLeft size={14} className="text-gray-500" />
                 </button>
                 {[...Array(pages)].map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setPage(i + 1)}
-                    className={`mono w-8 h-8 rounded-[3px] text-xs font-medium transition-all ${page === i + 1
-                        ? 'bg-blue-600 text-white'
-                        : 'glass text-slate-500 hover:text-slate-200'
+                    className={`mono w-8 h-8 rounded-sm text-xs font-medium transition-colors border ${page === i + 1
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                       }`}
                   >
                     {i + 1}
@@ -201,9 +201,9 @@ export default function CitizenDashboard() {
                 <button
                   onClick={() => setPage(p => Math.min(pages, p + 1))}
                   disabled={page === pages}
-                  className="p-1.5 rounded-[3px] glass hover:bg-white/10 transition-all disabled:opacity-30"
+                  className="p-1.5 rounded-sm bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-30"
                 >
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-gray-500" />
                 </button>
               </div>
             )}

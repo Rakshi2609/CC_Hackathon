@@ -4,7 +4,7 @@
 // GET /api/issues/clusters — all cluster primaries for government
 export const getGovtClusters = async (req, res) => {
   try {
-    const clusters = await Issue.find({ isClusterPrimary: true })
+    const clusters = await Issue.find({ $or: [{ isCluster: true }, { clusterMembers: { $exists: true, $not: { $size: 0 } } }] })
       .sort({ priorityScore: -1, clusterMembers: -1 })
       .populate({
         path: 'clusterMembers',
@@ -71,7 +71,7 @@ export const createIssue = async (req, res) => {
       priorityScore: 0,
       clusterId: null,
       clusterMembers: [],
-      isClusterPrimary: false,
+      isCluster: false,
       aiVerified,
     };
 
@@ -93,7 +93,7 @@ export const createIssue = async (req, res) => {
 
     if (nearby) {
       // Scenario A: Join an existing cluster primary
-      if (nearby.isClusterPrimary) {
+      if (nearby.isCluster || nearby.clusterMembers?.length > 0) {
         newIssueData.clusterId = nearby._id;
         createdIssue = await Issue.create(newIssueData);
         // Add new issue to clusterMembers and increment priorityScore
@@ -105,7 +105,7 @@ export const createIssue = async (req, res) => {
       }
       // Scenario B: Upgrade a standalone to cluster primary
       else {
-        nearby.isClusterPrimary = true;
+        nearby.isCluster = true;
         nearby.clusterMembers = [];
         newIssueData.clusterId = nearby._id;
         createdIssue = await Issue.create(newIssueData);
@@ -300,7 +300,7 @@ export const updateIssueStatus = async (req, res) => {
     await issue.save();
 
     // ── Cascade status to all cluster members ────────────────────
-    if (issue.isCluster && issue.clusterMembers.length > 0) {
+    if (issue.clusterMembers.length > 0) {
       const historyEntry = {
         status: issue.status,
         remark: remark
@@ -348,7 +348,7 @@ export const updateIssueStatus = async (req, res) => {
 export const getClusters = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, category } = req.query;
-    const filter = { isCluster: true };
+    const filter = { $or: [{ isCluster: true }, { clusterMembers: { $exists: true, $not: { $size: 0 } } }] };
     if (status) filter.status = status;
     if (category) filter.category = category;
 
@@ -378,7 +378,7 @@ export const getIssueCluster = async (req, res) => {
 
     // Resolve the cluster primary
     let primary = null;
-    if (issue.isCluster && !issue.clusterId) {
+    if (!issue.clusterId && issue.clusterMembers.length > 0) {
       // This IS the primary
       primary = await Issue.findById(issue._id)
         .populate('citizen', 'name email phone')
