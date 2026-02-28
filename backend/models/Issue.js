@@ -82,6 +82,11 @@ const issueSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // One-line note from the AI describing what it saw in the image
+    aiNote: {
+      type: String,
+      default: '',
+    },
     // ── Clustering ──────────────────────────────────────────────────
     // The "primary" issue that represents this cluster.
     // Null means this issue is the primary (or standalone).

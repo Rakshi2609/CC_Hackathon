@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Mic, MicOff, MapPin, ArrowLeft, Send, ScanLine } from 'lucide-react';
+import { ShieldCheck, Mic, MicOff, MapPin, ArrowLeft, Send, ScanLine, XCircle, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import CameraCapture from '../components/CameraCapture';
@@ -22,6 +22,7 @@ export default function ReportIssue() {
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [aiResult, setAiResult] = useState(null);   // { detectedCategory, aiVerified, aiNote }
   const [error, setError] = useState('');
   const [listening, setListening] = useState(false);
   const [voiceField, setVoiceField] = useState(null);
@@ -65,17 +66,25 @@ export default function ReportIssue() {
     setError('');
     setSubmitting(true);
     setScanning(true);
+    setAiResult(null);
     try {
       const data = new FormData();
       Object.entries(form).forEach(([k, v]) => data.append(k, v));
       if (image) data.append('image', image);
-      await api.post('/issues', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      navigate('/dashboard?success=1');
+      const res = await api.post('/issues', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+      // Show AI classification result for 2.5 s before redirecting
+      if (res.data?.meta) {
+        setAiResult(res.data.meta);
+        setTimeout(() => navigate('/dashboard?success=1'), 2500);
+      } else {
+        navigate('/dashboard?success=1');
+      }
     } catch (err) {
+      setScanning(false);
       setError(err.response?.data?.message || 'SUBMISSION_FAILED');
     } finally {
       setSubmitting(false);
-      setScanning(false);
     }
   };
 
@@ -94,20 +103,57 @@ export default function ReportIssue() {
                   <ScanLine size={32} className="text-slate-700" />
                 </div>
               )}
-              <div className="scan-beam" />
+              {!aiResult && <div className="scan-beam" />}
               {/* Corner brackets */}
               {[['top-0 left-0', 'border-t border-l'], ['top-0 right-0', 'border-t border-r'], ['bottom-0 left-0', 'border-b border-l'], ['bottom-0 right-0', 'border-b border-r']].map(([pos, cls]) => (
                 <div key={pos} className={`absolute ${pos} w-4 h-4 ${cls} border-cyan-400`} />
               ))}
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              <ShieldCheck size={14} className="text-cyan-400" />
-              <span className="mono text-xs text-cyan-400 tracking-widest">AI_VISION_SHIELD</span>
-            </div>
-            <p className="mono text-[11px] text-slate-600 text-center leading-relaxed">
-              ANALYZING: <span className="text-slate-400">{form.category || 'UNCLASSIFIED'}</span><br />
-              VERIFYING AUTHENTICITYâ€¦
-            </p>
+
+            {aiResult ? (
+              /* ── Result state ── */
+              <>
+                <div className={`flex items-center gap-2 mb-3 px-3 py-1.5 rounded-[4px] border ${
+                  aiResult.aiVerified
+                    ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                }`}>
+                  {aiResult.aiVerified
+                    ? <CheckCircle2 size={13} />
+                    : <XCircle size={13} />}
+                  <span className="mono text-[11px] tracking-widest font-semibold">
+                    {aiResult.aiVerified ? 'AI_VERIFIED' : 'UNVERIFIED'}
+                  </span>
+                </div>
+
+                <div className="text-center mb-1">
+                  <p className="mono text-[9px] text-slate-600 tracking-widest mb-0.5">DETECTED_CATEGORY</p>
+                  <p className="mono text-sm font-bold text-cyan-400 tracking-widest">
+                    {aiResult.aiDetectedCategory?.toUpperCase() || '—'}
+                  </p>
+                </div>
+
+                {aiResult.aiNote && (
+                  <p className="mono text-[10px] text-slate-500 text-center leading-relaxed mt-2 px-2">
+                    &ldquo;{aiResult.aiNote}&rdquo;
+                  </p>
+                )}
+
+                <p className="mono text-[10px] text-slate-700 mt-3 tracking-widest">REDIRECTING…</p>
+              </>
+            ) : (
+              /* ── Scanning state ── */
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck size={14} className="text-cyan-400" />
+                  <span className="mono text-xs text-cyan-400 tracking-widest">AI_VISION_SHIELD</span>
+                </div>
+                <p className="mono text-[11px] text-slate-600 text-center leading-relaxed">
+                  ANALYZING: <span className="text-slate-400">{form.category || 'UNCLASSIFIED'}</span><br />
+                  CLASSIFYING IMAGE…
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

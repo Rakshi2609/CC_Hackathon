@@ -18,7 +18,7 @@ export const getGovtClusters = async (req, res) => {
 };
 import Issue from '../models/Issue.js';
 import { notifyClusterMembers } from '../utils/socketHelpers.js';
-import { validateIssueImage } from '../services/aiService.js';
+import { classifyIssueImage } from '../services/aiService.js';
 import crypto from 'crypto';
 
 const DEPARTMENT_MAP = {
@@ -50,14 +50,28 @@ export const createIssue = async (req, res) => {
     // Image saved to disk by multer — build a relative URL if file was uploaded
     const imageUrl = req.file ? `/${req.file.path.replace(/\\/g, '/')}` : '';
 
-    // AI Vision Verification (optional — skip if no buffer available with disk storage)
+    // ── AI Vision Classification ──────────────────────────────────────────────
     let aiVerified = false;
+    let aiDetectedCategory = category;   // fallback to what citizen chose
+    let aiNote = '';
+
+    if (req.file) {
+      try {
+        const result = await classifyIssueImage(req.file.path, category);
+        aiVerified          = result.aiVerified;
+        aiDetectedCategory  = result.detectedCategory;
+        aiNote              = result.aiNote;
+        console.log(`[AI] category=${aiDetectedCategory} verified=${aiVerified} confidence=${result.confidence}% note="${aiNote}"`);
+      } catch (aiErr) {
+        console.warn('[AI] Classification error (non-fatal):', aiErr.message);
+      }
+    }
 
     // Prepare new issue data
     const newIssueData = {
       title,
       description,
-      category,
+      category: aiDetectedCategory,   // use AI-detected category (may differ from citizen's choice)
       imageUrl,
       photoUrl: imageUrl,
       resolutionPhotoUrl: '',
@@ -73,6 +87,7 @@ export const createIssue = async (req, res) => {
       clusterMembers: [],
       isCluster: false,
       aiVerified,
+      aiNote,
     };
 
     // Find a nearby unresolved issue of the same category within 100m
@@ -132,6 +147,9 @@ export const createIssue = async (req, res) => {
       meta: {
         wasClustered,
         clusterCount,
+        aiDetectedCategory,
+        aiVerified,
+        aiNote,
       },
     });
   } catch (err) {
