@@ -218,7 +218,6 @@ MongoDB
 
 ---
 
-## License
 
 MIT
 
