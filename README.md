@@ -110,6 +110,17 @@ curl -X POST http://localhost:5000/api/auth/create-gov \
 
 ---
 
+## Presentation (PPT)
+
+We prepared a short presentation for demos and judges. View or edit the slide deck in Canva:
+
+- Canva link: https://www.canva.com/design/DAHCtHLTChU/UH_gHSeSxJY1Isyv1e5cKQ/edit?utm_content=DAHCtHLTChU&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+
+H
+
+
+---
+
 ## Environment Setup
 
 Create `backend/.env`:
