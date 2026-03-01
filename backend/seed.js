@@ -51,7 +51,7 @@ const DEPT_MAP = {
 
 async function seed() {
   await mongoose.connect(MONGO_URI);
-  console.log('✅ DB connected');
+  console.log('SUCCESS: DB connected');
 
   // Find or create demo citizen users (we use 2 so cluster reporters look realistic)
   let citizen = await User.findOne({ email: 'demo@citizen.com' });
@@ -111,7 +111,7 @@ async function seed() {
           : []),
       ],
     });
-    console.log(`  ✅ Created: ${d.title}`);
+    console.log(`  SUCCESS: Created: ${d.title}`);
     created++;
   }
 

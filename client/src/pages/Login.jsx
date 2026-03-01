@@ -20,82 +20,92 @@ export default function Login() {
       login(res.data.token, res.data.user);
       navigate(res.data.user.role === 'government' ? '/gov-dashboard' : '/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'AUTH_FAILED');
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
-      {/* Grid BG */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(37,99,235,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.03) 1px, transparent 1px)',
-        backgroundSize: '40px 40px'
-      }} />
-
-      <div className="w-full max-w-sm relative z-10 fade-in">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-[4px] flex items-center justify-center">
-              <span className="text-white text-sm font-black">C+</span>
+          <Link to="/" className="inline-flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm font-bold">C+</span>
             </div>
-            <span className="text-xl font-semibold text-slate-100 tracking-tight">CivicPlus</span>
-          </div>
-          <p className="mono text-[10px] text-slate-700 mt-2 tracking-widest">SECURE_ACCESS_PORTAL Â· v2.0</p>
+            <span className="text-2xl font-bold text-gray-900">CivicPlus</span>
+          </Link>
+          <p className="text-sm text-gray-600 mt-2">Sign in to your account</p>
         </div>
 
-        <div className="glass rounded-[6px] p-7">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-1 h-4 bg-blue-600 rounded-full" />
-            <h2 className="text-sm font-semibold text-slate-200 tracking-wide">AUTHENTICATE</h2>
+        <div className="card p-8 shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Welcome back</h2>
+            <p className="text-sm text-gray-600">Please enter your credentials to continue</p>
           </div>
 
           {error && (
-            <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-[4px] bg-red-500/10 border border-red-500/20">
-              <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
-              <p className="mono text-[11px] text-red-400">{error}</p>
+            <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-md bg-red-50 border border-red-200">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="mono text-[10px] text-slate-600 tracking-widest block mb-1.5">EMAIL_ADDRESS</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 type="email"
                 required
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-[4px] text-sm mono border"
-                placeholder="user@domain.gov.in"
+                className="w-full px-3 py-2.5 rounded-md text-sm border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                placeholder="Enter your email"
               />
             </div>
+
             <div>
-              <label className="mono text-[10px] text-slate-600 tracking-widest block mb-1.5">PASSWORD</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
               <input
                 type="password"
                 required
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-[4px] text-sm mono border"
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                className="w-full px-3 py-2.5 rounded-md text-sm border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors"
+                placeholder="Enter your password"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white py-2.5 rounded-[4px] text-xs font-semibold transition-all"
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-md text-sm font-medium transition-colors"
             >
-              <LogIn size={13} />
-              {loading ? 'AUTHENTICATINGâ€¦' : 'SIGN IN'}
+              <LogIn size={16} />
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
-          <p className="mt-5 text-center mono text-[10px] text-slate-700">
-            NO ACCOUNT?{' '}
-            <Link to="/register" className="text-blue-500 hover:text-blue-400 transition-colors">REGISTER</Link>
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-center text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                Create account
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-gray-500">
+            Secure civic issue reporting platform
           </p>
         </div>
       </div>

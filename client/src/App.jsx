@@ -1,12 +1,15 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import CitizenDashboard from './pages/CitizenDashboard'
 import GovernmentDashboard from './pages/GovernmentDashboard'
 import ReportIssue from './pages/ReportIssue'
 import IssueDetail from './pages/IssueDetail'
+import CitizenProfile from './pages/CitizenProfile'
+import GovernmentProfile from './pages/GovernmentProfile'
 import './App.css'
 
 // Route guard helpers
@@ -29,10 +32,11 @@ function GuestOnly({ children }) {
 
 function App() {
   return (
-    <div className="min-h-screen bg-[#020617] relative">
+    <div className="min-h-screen bg-white relative">
       <Navbar />
       <Routes>
         {/* Public */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
         <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
 
@@ -45,9 +49,10 @@ function App() {
 
         {/* Shared */}
         <Route path="/issues/:id" element={<RequireAuth><IssueDetail /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><CitizenProfile /></RequireAuth>} />
+        <Route path="/gov-profile" element={<RequireAuth role="government"><GovernmentProfile /></RequireAuth>} />
 
-        {/* Redirect root */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

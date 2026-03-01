@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Camera, RotateCw, X, CheckCircle } from 'lucide-react';
 
 export default function CameraCapture({ onCapture }) {
   const videoRef = useRef(null);
@@ -91,17 +92,17 @@ export default function CameraCapture({ onCapture }) {
         <button
           type="button"
           onClick={() => startCamera()}
-          className="w-full h-40 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-300 rounded-2xl bg-blue-50 hover:bg-blue-100 transition cursor-pointer"
+          className="w-full h-40 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50 hover:bg-blue-100 transition cursor-pointer"
         >
-          <span className="text-4xl">📷</span>
+          <Camera size={32} className="text-blue-500" />
           <p className="text-sm font-medium text-blue-700">Open Camera</p>
-          <p className="text-xs text-gray-400">Tap to launch live camera</p>
+          <p className="text-xs text-gray-500">Tap to launch live camera</p>
         </button>
       )}
 
       {/* Live viewfinder */}
       {phase === 'live' && (
-        <div className="relative rounded-2xl overflow-hidden bg-black">
+        <div className="relative rounded-lg overflow-hidden bg-black">
           <video
             ref={videoRef}
             autoPlay
@@ -115,10 +116,10 @@ export default function CameraCapture({ onCapture }) {
             <button
               type="button"
               onClick={flipCamera}
-              className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition text-lg"
+              className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition"
               title="Flip camera"
             >
-              🔄
+              <RotateCw size={16} />
             </button>
             {/* Shutter */}
             <button
@@ -131,10 +132,10 @@ export default function CameraCapture({ onCapture }) {
             <button
               type="button"
               onClick={() => { stopStream(); setPhase('idle'); }}
-              className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition text-lg"
+              className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition"
               title="Cancel"
             >
-              ✕
+              <X size={16} />
             </button>
           </div>
           <canvas ref={canvasRef} className="hidden" />
@@ -143,17 +144,19 @@ export default function CameraCapture({ onCapture }) {
 
       {/* Preview of captured photo */}
       {phase === 'preview' && preview && (
-        <div className="relative rounded-2xl overflow-hidden">
-          <img src={preview} alt="Captured" className="w-full max-h-72 object-cover rounded-2xl" />
+        <div className="relative rounded-lg overflow-hidden">
+          <img src={preview} alt="Captured" className="w-full max-h-72 object-cover rounded-lg" />
           <button
             type="button"
             onClick={retake}
-            className="absolute top-3 right-3 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full hover:bg-black/80 transition font-medium"
+            className="absolute top-3 right-3 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full hover:bg-black/80 transition font-medium flex items-center gap-1"
           >
-            🔄 Retake
+            <RotateCw size={12} />
+            Retake
           </button>
-          <div className="absolute bottom-3 left-3 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-            ✓ Photo captured
+          <div className="absolute bottom-3 left-3 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+            <CheckCircle size={12} />
+            Photo captured
           </div>
         </div>
       )}

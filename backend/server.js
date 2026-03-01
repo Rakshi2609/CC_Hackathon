@@ -10,6 +10,13 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/authRoutes.js';
 import issueRoutes from './routes/issueRoutes.js';
 
+// Validate required environment variables
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set');
+  console.error('Please check your .env file and ensure JWT_SECRET is configured');
+  process.exit(1);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -91,7 +98,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/issues', issueRoutes);
 
-app.get('/', (_req, res) => res.json({ message: 'CivicPlus API running 🚀' }));
+app.get('/', (_req, res) => res.json({ message: 'CivicPlus API running successfully' }));
 
 // Global error handler
 app.use((err, _req, res, _next) => {

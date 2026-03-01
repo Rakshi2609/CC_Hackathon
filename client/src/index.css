@@ -89,7 +89,7 @@ body {
     z-index: 10;
 }
 
-/* ── Card enter ───────────────────────────────────────────── */
+/* ── Fade in animation ────────────────────────────────────── */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -104,6 +104,39 @@ body {
 
 .fade-in {
     animation: fadeInUp 0.12s ease-out both;
+}
+
+/* ── Grid pattern background ─────────────────────────────── */
+.bg-grid-pattern {
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+/* ── Scan bar animation for AI analysis ──────────────────── */
+@keyframes scanProgress {
+    0% {
+        width: 0%;
+    }
+
+    80% {
+        width: 90%;
+    }
+
+    100% {
+        width: 100%;
+    }
+}
+
+.scan-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--blue);
+    animation: scanProgress 2s ease-in-out infinite alternate;
+    z-index: 10;
 }
 
 /* ── Skeleton shimmer ─────────────────────────────────────── */
@@ -184,10 +217,50 @@ option {
     color: var(--text);
 }
 
-/* ── Light Leaflet overrides ──────────────────────────────── */
+/* ── Responsive container utility ──────────────────────── */
+.container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+    .container {
+        max-width: 640px;
+    }
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 768px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .container {
+        max-width: 1024px;
+    }
+}
+
+@media (min-width: 1280px) {
+    .container {
+        max-width: 1280px;
+    }
+}
+
+@media (min-width: 1536px) {
+    .container {
+        max-width: 1536px;
+    }
+}
+
+/* ── Improved map container for better loading ─────────── */
 .leaflet-container {
     background: #e8edf2 !important;
     font-family: 'Inter', sans-serif !important;
+    border-radius: 0.5rem;
 }
 
 .leaflet-popup-content-wrapper {

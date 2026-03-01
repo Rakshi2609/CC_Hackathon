@@ -33,7 +33,7 @@ Government-only panel rendering all hotspot clusters. Expandable cards reveal th
 Issue card with optional cluster badges:
 
 - 🔥 _"N people reported this issue nearby"_ — cluster primary
-- 📍 _"Part of a nearby cluster"_ — cluster member
+- LOCATION: _"Part of a nearby cluster"_ — cluster member
 
 ### `IssueMap`
 

@@ -28,7 +28,7 @@ export default function Navbar() {
             <span className="text-white text-xs font-black tracking-tight">C+</span>
           </div>
           <span className="font-semibold text-gray-900 text-sm tracking-tight">CivicPlus</span>
-          <span className="mono text-[10px] text-gray-400 hidden sm:block mt-0.5">v2.0</span>
+
         </Link>
 
         {/* Center nav */}
@@ -117,6 +117,14 @@ export default function Navbar() {
                     <p className="text-xs font-semibold text-gray-900 truncate">{user.name}</p>
                     <p className="mono text-[10px] text-gray-400 mt-0.5 uppercase tracking-widest">{user.role}</p>
                   </div>
+                  <Link
+                    to={user.role === 'government' ? '/gov-profile' : '/profile'}
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-xs text-gray-600 hover:bg-gray-50 transition-colors border-b border-gray-200"
+                  >
+                    <User size={12} />
+                    View Profile
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-4 py-3 text-xs text-red-600 hover:bg-red-50 transition-colors"
