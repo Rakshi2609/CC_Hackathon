@@ -68,6 +68,15 @@
 - **Live Map** — Interactive map showing all issue clusters with real-time updates
 - **Government Profile** — Portal stats including total issues, resolved count, resolution rate, issue list
 
+### Gallery
+
+<p align="center">
+  <img src="client/public/screenshots/Screenshot from 2026-02-28 17-56-15.png" alt="Landing" width="300" />
+  <img src="client/public/screenshots/Screenshot from 2026-03-01 18-58-25.png" alt="Report Issue" width="300" />
+  <img src="client/public/screenshots/Screenshot from 2026-03-01 19-07-48.png" alt="Citizen Dashboard" width="300" />
+  <img src="client/public/screenshots/Screenshot from 2026-03-01 19-08-40.png" alt="Issue Detail" width="300" />
+</p>
+
 ---
 
 ## Getting Started
@@ -108,18 +117,7 @@ curl -X POST http://localhost:5000/api/auth/create-gov \
 # Government: http://localhost:5173/login
 ```
 
----
 
-## Presentation (PPT)
-
-We prepared a short presentation for demos and judges. View or edit the slide deck in Canva:
-
-- Canva link: https://www.canva.com/design/DAHCtHLTChU/UH_gHSeSxJY1Isyv1e5cKQ/edit?utm_content=DAHCtHLTChU&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
-
-H
-
-
----
 
 ## Environment Setup
 
