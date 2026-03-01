@@ -226,3 +226,10 @@ MIT
 
 For issues or questions, open a GitHub issue or contact the team.
 | **IoT as Socket.IO broadcast vs stored records** | IoT ghost reports are broadcast-only signals — not stored in MongoDB — to keep the demonstration clean. In production, sensor readings would create real issue documents via the same `POST /api/issues` flow, requiring no frontend changes beyond swapping the source. |
+
+## Demo & Presentation
+
+- **Demo video:** [Watch the demo video](https://drive.google.com/file/d/1PGxFAuCFJuLhGEp5MuZfKBpRvgh3_2o7/view?usp=sharing)
+- **Presentation (PPT):** [Open the project presentation](https://drive.google.com/file/d/1SnqoXMkdEb1A9Z4SH0A2Aw6QRQzH2QV2/view?usp=sharing)
+
+Note: Google Drive files are linked — GitHub will not embed Drive-hosted videos inline. To embed a playable video, host an MP4 in the repo or upload the video to YouTube and use the YouTube embed/link.
